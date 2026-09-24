@@ -19,8 +19,10 @@ class FileBridgeService:Service(){private lateinit var wm:WindowManager;private 
  private fun showPanel(){
      try {
          toast("1. 进入 showPanel")
-         if (panel != null) { toast("2. 面板已存在，return"); return }val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(12),dp(16),dp(16));background=bg("#FFFFFF",16,null)}
-         toast("3. box 构建完成")val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="📁 FileBridge";textSize=15f;setTypeface(null,1)};val set=Button(this).apply{text="⚙";setOnClickListener{startActivity(Intent(this@FileBridgeService,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}};val close=Button(this).apply{text="×";setOnClickListener{closePanel()}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(set,LinearLayout.LayoutParams(dp(40),dp(40)));top.addView(close,LinearLayout.LayoutParams(dp(40),dp(40)));box.addView(top)
+         if (panel != null) { toast("2. 面板已存在，return"); return }
+         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(12),dp(16),dp(16));background=bg("#FFFFFF",16,null)}
+         toast("3. box 构建完成")
+         val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="📁 FileBridge";textSize=15f;setTypeface(null,1)};val set=Button(this).apply{text="⚙";setOnClickListener{startActivity(Intent(this@FileBridgeService,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}};val close=Button(this).apply{text="×";setOnClickListener{closePanel()}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(set,LinearLayout.LayoutParams(dp(40),dp(40)));top.addView(close,LinearLayout.LayoutParams(dp(40),dp(40)));box.addView(top)
  toast("4. root.name = ${root.name}")
  val dir=TextView(this).apply{text="📂 项目： ${root.name}";textSize=13f;setTextColor(Color.rgb(99,102,241));setPadding(0,0,0,dp(8));setOnClickListener{startActivity(Intent(this@FileBridgeService,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}};box.addView(dir)
  val input=EditText(this).apply{hint="粘贴 AI 指令到这里...";textSize=13f;gravity=Gravity.TOP;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE;setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")};box.addView(input,LinearLayout.LayoutParams(-1,dp(100)).also{it.bottomMargin=dp(12)})
