@@ -56,47 +56,47 @@ class MainActivity : Activity() {
     private fun autoStartIfNeeded(showPermissionHint: Boolean) {
         if (!prefs.getBoolean("auto_show_overlay", true) || FileBridgeService.running) return
         if (!Settings.canDrawOverlays(this)) {
-            if (showPermissionHint) {
-                Toast.makeText(this, "请先在系统设置开启悬浮窗权限；ColorOS 后台自启动也需允许。", Toast.LENGTH_LONG).show()
-            }
+            if (showPermissionHint) Toast.makeText(this, "请先在系统设置开启悬浮窗权限；ColorOS 后台自启动也需允许。", Toast.LENGTH_LONG).show()
             return
         }
-        runCatching {
-            ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java))
-        }.onFailure {
-            Toast.makeText(this, "自动显示悬浮窗失败，请检查系统的悬浮窗/自启动限制。", Toast.LENGTH_LONG).show()
-        }
+        runCatching { ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java)) }
+            .onFailure { Toast.makeText(this, "自动显示悬浮窗失败，请检查系统的悬浮窗/自启动限制。", Toast.LENGTH_LONG).show() }
     }
 
     private fun render() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(40, 40, 40, 40)
+            setPadding(dp(20), dp(20), dp(20), dp(20))
         }
         ViewCompat.setOnApplyWindowInsetsListener(box) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(40 + bars.left, 40 + bars.top, 40 + bars.right, 40 + bars.bottom)
+            v.setPadding(dp(20) + bars.left, dp(20) + bars.top, dp(20) + bars.right, dp(20) + bars.bottom)
             insets
         }
 
-        box.addView(TextView(this).apply {
-            text = "BridgeFS v0.1.0 (1)"
+        val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(TextView(this).apply {
+            text = "BridgeFS"
             textSize = 24f
             setTypeface(null, 1)
-        }, LinearLayout.LayoutParams(-1, dp(48)))
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        titleRow.addView(TextView(this).apply {
+            text = "v0.1.1"
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(dp(56), dp(48)))
+        box.addView(titleRow)
 
-        box.addView(TextView(this).apply { text = "目录列表："; textSize = 15f })
+        box.addView(TextView(this).apply { text = "目录"; textSize = 15f }, LinearLayout.LayoutParams(-1, dp(32)))
+
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
         roots().forEach { path ->
             val row = TextView(this).apply {
                 text = "📂 " + File(path).name.ifBlank { path } + "\n" + path
                 textSize = 14f
-                setPadding(12, 12, 12, 12)
-                setBackgroundColor(
-                    if (path == prefs.getString("root_path", null)) Color.rgb(224, 231, 255)
-                    else Color.WHITE
-                )
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setBackgroundColor(if (path == prefs.getString("root_path", null)) Color.rgb(224, 231, 255) else Color.WHITE)
                 setOnClickListener { activate(path) }
                 var downX = 0f
                 setOnTouchListener { _, e ->
@@ -112,9 +112,7 @@ class MainActivity : Activity() {
                                         val rs = roots()
                                         rs.remove(path)
                                         saveRoots(rs)
-                                        if (prefs.getString("root_path", null) == path) {
-                                            prefs.edit().remove("root_path").apply()
-                                        }
+                                        if (prefs.getString("root_path", null) == path) prefs.edit().remove("root_path").apply()
                                         render()
                                     }.show()
                                 true
@@ -127,165 +125,122 @@ class MainActivity : Activity() {
             list.addView(row, LinearLayout.LayoutParams(-1, dp(62)).also { it.bottomMargin = dp(6) })
         }
 
-        box.addView(
-            ScrollView(this).apply { addView(list) },
-            LinearLayout.LayoutParams(-1, 0, 1f)
-        )
+        box.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        box.addView(Button(this).apply {
-            text = "＋ 添加目录"
+        val accessRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val accessStatus = TextView(this).apply {
+            text = if (Environment.isExternalStorageManager()) "所有文件访问 ✅" else "所有文件访问 ❌"
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            gravity = Gravity.CENTER
             setOnClickListener {
-                if (!Environment.isExternalStorageManager()) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-                } else {
-                    showDirectoryPicker()
-                }
+                if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
             }
-        }, LinearLayout.LayoutParams(-1, dp(48)))
-
-        box.addView(TextView(this).apply {
-            text = "权限状态：\n" +
-                (if (Settings.canDrawOverlays(this@MainActivity)) "✅ 悬浮窗权限" else "❌ 悬浮窗权限") +
-                "\n" +
-                (if (Environment.isExternalStorageManager()) "✅ 所有文件访问" else "❌ 所有文件访问")
-            textSize = 14f
-            setPadding(0, dp(12), 0, dp(12))
+        }
+        val addDir = Button(this).apply {
+            text = "+ 添加目录"
+            textSize = 13f
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(0, 0, 0, 0)
             setOnClickListener {
-                if (!Settings.canDrawOverlays(this@MainActivity)) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                } else if (!Environment.isExternalStorageManager()) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-                }
+                if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
+                else showDirectoryPicker()
             }
-        })
+        }
+        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
+        accessRow.addView(addDir, LinearLayout.LayoutParams(dp(120), dp(44)).also { it.marginStart = dp(6) })
+        box.addView(accessRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
 
+        val overlayRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val overlayStatus = TextView(this).apply {
+            text = if (Settings.canDrawOverlays(this@MainActivity)) "悬浮窗权限 ✅" else "悬浮窗权限 ❌"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setOnClickListener {
+                if (!Settings.canDrawOverlays(this@MainActivity)) startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
         val autoSwitch = Switch(this).apply {
-            text = "启动时自动显示悬浮窗"
-            textSize = 14f
+            text = "自动显示"
+            textSize = 12f
             isChecked = prefs.getBoolean("auto_show_overlay", true)
-            setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean("auto_show_overlay", checked).apply()
-            }
+            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("auto_show_overlay", checked).apply() }
         }
-        box.addView(autoSwitch, LinearLayout.LayoutParams(-1, dp(48)))
+        val open = Button(this).apply {
+            text = "打开悬浮窗"
+            textSize = 12f
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(0, 0, 0, 0)
+            setOnClickListener { startOverlayManually() }
+        }
+        overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
+        overlayRow.addView(autoSwitch, LinearLayout.LayoutParams(0, dp(44), 1f))
+        overlayRow.addView(open, LinearLayout.LayoutParams(0, dp(44), 1f))
+        box.addView(overlayRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
 
+        val logRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        logRow.addView(TextView(this).apply {
+            text = "运行日志 / 崩溃日志"
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
         val logSwitch = Switch(this).apply {
-            text = "运行日志（run.log）"
-            textSize = 14f
             isChecked = prefs.getBoolean("run_log_enabled", true)
-            setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean("run_log_enabled", checked).apply()
-            }
+            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("run_log_enabled", checked).apply() }
         }
-        box.addView(logSwitch, LinearLayout.LayoutParams(-1, dp(48)))
+        logRow.addView(logSwitch, LinearLayout.LayoutParams(dp(64), dp(44)))
+        box.addView(logRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
 
         box.addView(TextView(this).apply {
-            text = "ColorOS：如系统限制后台运行或自启动，请在系统设置中允许 BridgeFS。"
+            text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
             textSize = 12f
             setTextColor(Color.GRAY)
-            setPadding(0, dp(4), 0, dp(8))
-        })
-
-        box.addView(Button(this).apply {
-            text = "复制日志路径"
-            setOnClickListener {
-                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(
-                    android.content.ClipData.newPlainText(
-                        "BridgeFS日志路径",
-                        "/sdcard/BridgeFS/logs/latest.log  # 崩溃日志\n" +
-                            "/sdcard/BridgeFS/logs/run.log  # 运行日志"
-                    )
-                )
-                Toast.makeText(this@MainActivity, "已复制日志路径", Toast.LENGTH_SHORT).show()
-            }
-        }, LinearLayout.LayoutParams(-1, dp(48)))
-
-        box.addView(Button(this).apply {
-            text = "打开悬浮窗"
-            setOnClickListener {
-                if (!Settings.canDrawOverlays(this@MainActivity)) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                    return@setOnClickListener
-                }
-                if (!Environment.isExternalStorageManager()) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-                    return@setOnClickListener
-                }
-                if (prefs.getString("root_path", null).isNullOrBlank()) {
-                    Toast.makeText(this@MainActivity, "请先添加并激活项目目录", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                runCatching {
-                    ContextCompatCompat.startService(this@MainActivity, Intent(this@MainActivity, FileBridgeService::class.java))
-                }.onFailure {
-                    Toast.makeText(this@MainActivity, "启动悬浮窗失败，请检查系统权限。", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }, LinearLayout.LayoutParams(-1, dp(48)))
-
+            setPadding(0, dp(8), 0, dp(8))
+        }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = dp(8) })
         setContentView(box)
     }
 
-    private fun showDirectoryPicker() {
-        pickerPath = File("/storage/emulated/0")
-        DirectoryDialog().show()
+    private fun startOverlayManually() {
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            return
+        }
+        if (!Environment.isExternalStorageManager()) {
+            startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
+            return
+        }
+        if (prefs.getString("root_path", null).isNullOrBlank()) {
+            Toast.makeText(this, "请先添加并激活项目目录", Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching { ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java)) }
+            .onFailure { Toast.makeText(this, "启动悬浮窗失败，请检查系统权限。", Toast.LENGTH_SHORT).show() }
     }
+
+    private fun showDirectoryPicker() { pickerPath = File("/storage/emulated/0"); DirectoryDialog().show() }
 
     private inner class DirectoryDialog {
         private val dialog = AlertDialog.Builder(this@MainActivity).create()
-        private val container = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(12), dp(12), dp(12))
-        }
+        private val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(12), dp(12), dp(12)) }
         private val pathView = TextView(this@MainActivity).apply { textSize = 13f }
-
-        fun show() {
-            dialog.setView(container)
-            renderPicker()
-            dialog.show()
-        }
-
+        fun show() { dialog.setView(container); renderPicker(); dialog.show() }
         private fun renderPicker() {
             pathView.text = "当前目录：\n" + pickerPath.absolutePath
-            container.removeAllViews()
-            container.addView(pathView)
+            container.removeAllViews();container.addView(pathView)
             val scroll = ScrollView(this@MainActivity)
             val list = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-            pickerPath.listFiles()?.filter { it.isDirectory }.orEmpty()
-                .sortedBy { it.name.lowercase(Locale.getDefault()) }
-                .forEach { dir ->
-                    list.addView(Button(this@MainActivity).apply {
-                        text = "📂 " + dir.name
-                        setOnClickListener { pickerPath = dir; renderPicker() }
-                    })
-                }
-            scroll.addView(list)
-            container.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            pickerPath.listFiles()?.filter { it.isDirectory }.orEmpty().sortedBy { it.name.lowercase(Locale.getDefault()) }.forEach { dir ->
+                list.addView(Button(this@MainActivity).apply { text = "📂 " + dir.name; setOnClickListener { pickerPath = dir; renderPicker() } })
+            }
+            scroll.addView(list);container.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-            actions.addView(Button(this@MainActivity).apply {
-                text = "返回"
-                setOnClickListener {
-                    pickerPath.parentFile?.takeIf {
-                        it.absolutePath.startsWith("/storage/emulated/0") &&
-                            it.absolutePath != "/storage/emulated/0"
-                    }?.let { pickerPath = it; renderPicker() }
-                }
-            }, LinearLayout.LayoutParams(0, dp(48), 1f))
-            actions.addView(Button(this@MainActivity).apply {
-                text = "选择此目录"
-                setOnClickListener {
-                    val p = pickerPath.canonicalPath
-                    val rs = roots()
-                    if (!rs.contains(p)) rs.add(p)
-                    saveRoots(rs)
-                    activate(p)
-                    dialog.dismiss()
-                }
-            }, LinearLayout.LayoutParams(0, dp(48), 1f))
+            actions.addView(Button(this@MainActivity).apply { text = "返回"; setOnClickListener { pickerPath.parentFile?.takeIf { it.absolutePath.startsWith("/storage/emulated/0") && it.absolutePath != "/storage/emulated/0" }?.let { pickerPath = it; renderPicker() } } }, LinearLayout.LayoutParams(0, dp(48), 1f))
+            actions.addView(Button(this@MainActivity).apply { text = "选择此目录"; setOnClickListener { val p = pickerPath.canonicalPath;val rs=roots();if(!rs.contains(p))rs.add(p);saveRoots(rs);activate(p);dialog.dismiss() } }, LinearLayout.LayoutParams(0, dp(48), 1f))
             container.addView(actions)
         }
     }
-
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 }
