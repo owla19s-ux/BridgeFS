@@ -11,7 +11,9 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-class FileBridgeService:Service(){private lateinit var wm:WindowManager;private lateinit var ball:TextView;private var panel:LinearLayout?=null;private lateinit var root:File;private lateinit var ballLp:WindowManager.LayoutParams;private lateinit var panelLpRef:WindowManager.LayoutParams;private val logs=ArrayDeque<String>()\nprivate val handler=Handler(Looper.getMainLooper())\ncompanion object { @Volatile var running=false }
+class FileBridgeService:Service(){private lateinit var wm:WindowManager;private lateinit var ball:TextView;private var panel:LinearLayout?=null;private lateinit var root:File;private lateinit var ballLp:WindowManager.LayoutParams;private lateinit var panelLpRef:WindowManager.LayoutParams;private val logs=ArrayDeque<String>()
+private val handler=Handler(Looper.getMainLooper())
+companion object { @Volatile var running=false }
 override fun onCreate(){super.onCreate();running=true;root=File(getSharedPreferences("bridgefs",0).getString("root_path","")!!);channel();startForeground(1,Notification.Builder(this,"filebridge").setContentTitle("FileBridge").setContentText("悬浮文件桥运行中").setSmallIcon(android.R.drawable.ic_menu_manage).build());wm=getSystemService(WINDOW_SERVICE)as WindowManager;log("Service","onCreate");showBall()}
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
 private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,-3)
