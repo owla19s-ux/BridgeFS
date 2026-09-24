@@ -1,6 +1,11 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 
 android {
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName = "BridgeFS-${variant.name}.apk"
+        }
+    }
     namespace 'com.owla19s.bridgefs'
     compileSdk 35
 
