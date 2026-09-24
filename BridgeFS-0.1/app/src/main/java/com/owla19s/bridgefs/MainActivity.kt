@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.View
+import android.view.Gravity
 import android.widget.*
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
