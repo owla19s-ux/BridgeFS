@@ -73,18 +73,16 @@ class MainActivity:Activity(){
         private val dialog=AlertDialog.Builder(this@MainActivity).create()
         private val container=LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12))}
         private val pathView=TextView(this@MainActivity).apply{textSize=13f}
-        private val list=LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL}
         fun show(){dialog.setView(container);renderPicker();dialog.show()}
         private fun renderPicker(){
-            pathView.text="当前目录：\\n${pickerPath.absolutePath}"
+            pathView.text="当前目录：\n${pickerPath.absolutePath}"
             container.removeAllViews();container.addView(pathView)
             val scroll=ScrollView(this@MainActivity)
-            scroll.addView(list.apply{
-                removeAllViews()
-                pickerPath.listFiles()?.filter{it.isDirectory}.orEmpty().sortedBy{it.name.lowercase(Locale.getDefault())}.forEach{dir->
-                    addView(Button(this@MainActivity).apply{text="📂 ${dir.name}";setOnClickListener{pickerPath=dir;renderPicker()}})
-                }
-            })
+            val list=LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL}
+            pickerPath.listFiles()?.filter{it.isDirectory}.orEmpty().sortedBy{it.name.lowercase(Locale.getDefault())}.forEach{dir->
+                list.addView(Button(this@MainActivity).apply{text="📂 ${dir.name}";setOnClickListener{pickerPath=dir;renderPicker()}})
+            }
+            scroll.addView(list)
             container.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
             val actions=LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL}
             actions.addView(Button(this@MainActivity).apply{text="返回";setOnClickListener{pickerPath.parentFile?.takeIf{it.absolutePath.startsWith("/storage/emulated/0")&&it.absolutePath!="/storage/emulated/0"}?.let{pickerPath=it;renderPicker()}}},LinearLayout.LayoutParams(0,dp(48),1f))
