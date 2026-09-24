@@ -13,6 +13,10 @@ class BridgeFSApp : Application() {
         val default = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             runCatching {
+                if (!getSharedPreferences("bridgefs", 0).getBoolean("run_log_enabled", true)) {
+                    default?.uncaughtException(t, e)
+                    return@runCatching
+                }
                 val now = Date()
                 val versionInfo = packageManager.getPackageInfo(packageName, 0)
                 val text = buildString {
@@ -27,8 +31,7 @@ class BridgeFSApp : Application() {
                     appendLine(Log.getStackTraceString(e))
                 }
                 val dir = File("/sdcard/BridgeFS/logs")
-                val targetDir = if (dir.mkdirs() || dir.isDirectory) dir
-                else File(getExternalFilesDir(null), "logs").apply { mkdirs() }
+                val targetDir = if (dir.mkdirs() || dir.isDirectory) dir else File(getExternalFilesDir(null), "logs").apply { mkdirs() }
                 val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(now)
                 File(targetDir, "crash_" + ts + ".log").writeText(text)
                 File(targetDir, "latest.log").writeText(text)
@@ -36,7 +39,6 @@ class BridgeFSApp : Application() {
             default?.uncaughtException(t, e)
         }
     }
-
     private fun readRunLog(): String {
         val public = File("/sdcard/BridgeFS/logs/run.log")
         return runCatching {
