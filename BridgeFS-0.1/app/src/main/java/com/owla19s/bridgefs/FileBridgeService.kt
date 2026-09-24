@@ -72,21 +72,13 @@ val input=EditText(this).apply{
 hint="粘贴 AI 指令到这里...";textSize=13f;gravity=Gravity.TOP
 inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
 setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
-setOnClickListener{
-try{
-panelLpRef.flags=panelLpRef.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-panel?.let{wm.updateViewLayout(it,panelLpRef)}
-requestFocus()
-post{(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).showSoftInput(this,InputMethodManager.SHOW_IMPLICIT)}
-}catch(e:Exception){log("Error","输入框获取焦点："+e.message)}
-}
-setOnFocusChangeListener{_,hasFocus->if(!hasFocus)releaseInputFocus()}
+setOnClickListener{showCommandInputDialog(this)}
 }
 val paste=smallButton("📋"){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.primaryClip?.let{if(it.itemCount>0)input.setText(it.getItemAt(0).coerceToText(this))}}
 val run=smallButton("▶"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
-val results=if(cs.isEmpty())listOf("未发现可执行指令")else cs.map{CommandExecutor(root).execute(it)}
+val results=if(cs.isEmpty())listOf("未发现可执行指令")else cs.map{CommandExecutor(root,this).execute(it)}
 findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
 log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
 }
@@ -134,16 +126,50 @@ box.post{val maxH=(resources.displayMetrics.heightPixels*.65f).toInt();if(box.he
 }catch(e:Exception){log("Error","showPanel："+e.message);toast("打开面板失败："+e.message)}
 }
 
+private var inputDialog:Dialog?=null
 private fun releaseInputFocus(){
-try{
-val v=panel?:return
-panelLpRef.flags=panelLpRef.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-wm.updateViewLayout(v,panelLpRef)
-(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).hideSoftInputFromWindow(v.windowToken,0)
-v.clearFocus()
-}catch(e:Exception){log("Error","回收输入法："+e.message)}
+runCatching{inputDialog?.dismiss();inputDialog=null}
 }
 private fun toast(msg:String){handler.post{Toast.makeText(this,msg,Toast.LENGTH_SHORT).show()}}
+private fun showCommandInputDialog(target:EditText){
+ if(inputDialog?.isShowing==true)return
+ val dialog=Dialog(this)
+ inputDialog=dialog
+ dialog.setOnDismissListener{inputDialog=null}
+ dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+ val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(16),dp(16),dp(16))}
+ val edit=EditText(this).apply{
+  setText(target.text)
+  setSelection(text.length)
+  hint="输入 AI 指令..."
+  textSize=14f
+  gravity=Gravity.TOP
+  minLines=6
+  maxLines=12
+  inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+ }
+ box.addView(edit,LinearLayout.LayoutParams(-1,dp(180)))
+ val actions=LinearLayout(this).apply{gravity=Gravity.END}
+ val cancel=Button(this).apply{text="取消";setOnClickListener{dialog.dismiss()}}
+ val ok=Button(this).apply{text="确定";setOnClickListener{target.setText(edit.text.toString());target.setSelection(target.text.length);dialog.dismiss()}}
+ actions.addView(cancel,LinearLayout.LayoutParams(dp(80),dp(44)))
+ actions.addView(ok,LinearLayout.LayoutParams(dp(80),dp(44)).also{it.marginStart=dp(8)})
+ box.addView(actions,LinearLayout.LayoutParams(-1,dp(44)).also{it.topMargin=dp(8)})
+ dialog.setContentView(box)
+ dialog.window?.let{
+  it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+  it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+  it.setLayout(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
+ }
+ dialog.show()
+ dialog.window?.let{
+  it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+  it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+  it.setLayout(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
+ }
+ edit.requestFocus()
+ edit.post{(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).showSoftInput(edit,InputMethodManager.SHOW_IMPLICIT)}
+}
 
 private fun clearPanel(){
 runCatching{panel?.let{wm.removeView(it)}}
@@ -187,7 +213,6 @@ private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，�
 
 规则：
 - 路径一律相对于项目根目录，例如 笔记/今天.txt
-- [write] 和 [edit] 必须包在代码块里，语言标记就是 [write: 路径]
 - 一次可以发多条指令，我会按顺序执行
 - 执行结果会贴回来给你
 """;copyText("BridgeFS说明书",text);toast("已复制到剪贴板")}
