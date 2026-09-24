@@ -16,7 +16,7 @@ class BridgeFSApp : Application() {
                 val text = buildString {
                     appendLine("time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
                     appendLine("thread: ${t.name}")
-                    appendLine("version: ${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})")
+                    appendLine("version: ${packageManager.getPackageInfo(packageName, 0).versionName}(${packageManager.getPackageInfo(packageName, 0).longVersionCode})")
                     appendLine(Log.getStackTraceString(e))
                 }
                 val dir = File("/sdcard/BridgeFS/logs")
