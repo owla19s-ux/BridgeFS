@@ -16,11 +16,12 @@ class FileBridgeService:Service(){
 private lateinit var wm:WindowManager
 private lateinit var ball:TextView
 private var panel:LinearLayout?=null
+private var commandInput:EditText?=null
 private lateinit var root:File
 private lateinit var ballLp:WindowManager.LayoutParams
 private lateinit var panelLpRef:WindowManager.LayoutParams
 private val handler=Handler(Looper.getMainLooper())
-companion object{@Volatile var running=false}
+companion object{@Volatile var running=false;@Volatile var clipboardCallback:((String)->Unit)?=null}
 
 override fun onCreate(){
 super.onCreate();running=true
@@ -50,10 +51,9 @@ clearPanel();ball.visibility=View.GONE;log("UI","showPanel")
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,"#2E7BE0")
 }
-
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val title=TextView(this).apply{text="📁 BridgeFS";textSize=15f;setTypeface(null,1)}
-val help=smallButton("📖"){copyInstructions()}
+val help=smallButton("帮助"){copyInstructions()}
 val close=smallButton("⌄"){closePanel()}
 top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f))
 top.addView(help,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
@@ -64,8 +64,8 @@ installPanelDrag(top)
 val address=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val dir=TextView(this).apply{text="📂 "+root.name;if(root.name.isBlank())text="📂 "+root.absolutePath;textSize=13f;setTextColor(Color.rgb(99,102,241));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE}
 address.addView(dir,LinearLayout.LayoutParams(0,dp(40),1f))
-address.addView(smallButton("🗂️"){showBrowser()},LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
-address.addView(smallButton("📋"){copyText("BridgeFS路径",root.absolutePath)},LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
+address.addView(smallButton("选择"){showBrowser()},LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
+address.addView(smallButton("复制路径"){copyText("BridgeFS路径",root.absolutePath)},LinearLayout.LayoutParams(dp(72),dp(40)).also{it.marginStart=dp(6)})
 box.addView(address,LinearLayout.LayoutParams(-1,dp(40)).also{it.topMargin=dp(8)})
 
 val input=EditText(this).apply{
@@ -74,8 +74,10 @@ inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
 setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
 setOnClickListener{showCommandInputDialog(this)}
 }
-val paste=smallButton("📋"){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.primaryClip?.let{if(it.itemCount>0)input.setText(it.getItemAt(0).coerceToText(this))}}
-val run=smallButton("▶"){
+commandInput=input
+clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.setSelection(commandInput?.text?.length?:0)}}
+val paste=smallButton("粘贴"){startActivity(Intent(this,ClipboardReaderActivity::class.java))}
+val run=smallButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
 val results=if(cs.isEmpty())listOf("未发现可执行指令")else cs.map{CommandExecutor(root,this).execute(it)}
@@ -87,7 +89,7 @@ val inputRow=LinearLayout(this).apply{gravity=Gravity.BOTTOM;addView(input,Linea
 box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(86)).also{it.topMargin=dp(8)})
 
 val receipt=TextView(this).apply{text="执行结果会显示在这里";textSize=12f;typeface=android.graphics.Typeface.MONOSPACE;setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null)}
-val copyReceipt=smallButton("📋"){copyText("BridgeFS回执",receipt.text.toString())}
+val copyReceipt=smallButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
 val receiptRow=LinearLayout(this).apply{gravity=Gravity.TOP;addView(receipt,LinearLayout.LayoutParams(0,dp(48),1f));addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(8)})}
 box.addView(receiptRow,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=dp(8)})
 
@@ -176,7 +178,7 @@ runCatching{panel?.let{wm.removeView(it)}}
 panel=null
 log("UI","clearPanel")
 }
-private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clearPanel();handler.removeCallbacksAndMessages(null);ball.visibility=View.VISIBLE;ball.alpha=.7f;ball.translationX=0f}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
+private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);ball.visibility=View.VISIBLE;ball.alpha=.7f;ball.translationX=0f}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
 
 private fun installPanelDrag(v:View){v.setOnTouchListener{_,e->panelDragHandler(v,e)}}
 private fun panelDragHandler(@Suppress("UNUSED_PARAMETER") v:View,e:MotionEvent):Boolean{
@@ -248,5 +250,12 @@ private fun drag(v:View,p:WindowManager.LayoutParams){var downRawX=0f;var downRa
 private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))}
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
-override fun onDestroy(){log("Service","onDestroy");clearPanel();if(::ball.isInitialized)runCatching{wm.removeView(ball)};running=false;super.onDestroy()}
+override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::ball.isInitialized)runCatching{wm.removeView(ball)};running=false;super.onDestroy()}
+}
+
+class ClipboardReaderActivity:Activity(){
+private var consumed=false
+override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);overridePendingTransition(0,0)}
+override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(!hasFocus||consumed)return;consumed=true;val text=runCatching{val cm=getSystemService(CLIPBOARD_SERVICE)as android.content.ClipboardManager;cm.primaryClip?.let{if(it.itemCount>0)it.getItemAt(0).coerceToText(this).toString()else""}?:""}.getOrDefault("");FileBridgeService.clipboardCallback?.invoke(text);overridePendingTransition(0,0);finish()}
+override fun onDestroy(){overridePendingTransition(0,0);super.onDestroy()}
 }
