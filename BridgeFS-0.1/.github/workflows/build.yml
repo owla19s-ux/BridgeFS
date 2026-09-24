@@ -25,4 +25,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: BridgeFS-v0.1.0
-          path: BridgeFS-0.1/app/build/outputs/apk/debug/BridgeFS-v0.1.0.apk
+          path: BridgeFS-0.1/app/build/outputs/apk/debug/BridgeFS-*.apk
