@@ -1,4 +1,4 @@
-name: Build FileBridge APK
+name: Build BridgeFS APK
 on:
   push:
     paths:
@@ -24,7 +24,5 @@ jobs:
         working-directory: BridgeFS-0.1
       - uses: actions/upload-artifact@v4
         with:
-          name: FileBridge-debug-apk
-          path: BridgeFS-0.1/app/build/outputs/apk/debug/app-debug.apk
-
-# Trigger cloud build verification.
+          name: BridgeFS-v0.1.0
+          path: BridgeFS-0.1/app/build/outputs/apk/debug/BridgeFS-v0.1.0.apk
