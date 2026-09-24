@@ -1,0 +1,30 @@
+package com.owla19s.bridgefs
+import android.app.*
+import android.content.*
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.os.*
+import android.text.InputType
+import android.view.*
+import android.widget.*
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
+class FileBridgeService:Service(){private lateinit var wm:WindowManager;private lateinit var ball:TextView;private var panel:LinearLayout?=null;private lateinit var root:File;private val logs=ArrayDeque<String>()
+ override fun onCreate(){super.onCreate();root=File(getSharedPreferences("bridgefs",0).getString("root_path","")!!);channel();startForeground(1,Notification.Builder(this,"filebridge").setContentTitle("FileBridge").setContentText("悬浮文件桥运行中").setSmallIcon(android.R.drawable.ic_menu_manage).build());wm=getSystemService(WINDOW_SERVICE)as WindowManager;showBall()}
+ private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
+ private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,-3)
+ private fun showBall(){ball=TextView(this).apply{text="📁";textSize=22f;gravity=17;alpha=.7f;background=bg("#CC1E293B",28,"#6366F1");setOnClickListener{showPanel()}};val p=lp(dp(56),dp(56));p.gravity=Gravity.TOP or Gravity.RIGHT;p.x=0;p.y=(resources.displayMetrics.heightPixels*.65).toInt();drag(ball,p);wm.addView(ball,p)}
+ private fun showPanel(){if(panel!=null)return;val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(12),dp(16),dp(16));background=bg("#FFFFFF",16,null)};val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="📁 FileBridge";textSize=15f;setTypeface(null,1)};val set=Button(this).apply{text="⚙";setOnClickListener{Toast.makeText(this@FileBridgeService,"请回到 FileBridge 主界面重新选择项目目录",Toast.LENGTH_LONG).show()}};val close=Button(this).apply{text="×";setOnClickListener{closePanel()}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(set,LinearLayout.LayoutParams(dp(40),dp(40)));top.addView(close,LinearLayout.LayoutParams(dp(40),dp(40)));box.addView(top)
+ val dir=TextView(this).apply{text="📂 项目： ${root.name}";textSize=13f;setTextColor(Color.rgb(99,102,241));setPadding(0,0,0,dp(8))};box.addView(dir)
+ val input=EditText(this).apply{hint="粘贴 AI 指令到这里...";textSize=13f;gravity=Gravity.TOP;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE;setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")};box.addView(input,LinearLayout.LayoutParams(-1,dp(100)).also{it.bottomMargin=dp(12)})
+ val run=Button(this).apply{text="▶ 执行";setTextColor(Color.WHITE);background=bg("#6366F1",8,null)};box.addView(run,LinearLayout.LayoutParams(-1,dp(40)).also{it.bottomMargin=dp(12)})
+ val receipt=TextView(this).apply{textSize=12f;typeface=android.graphics.Typeface.MONOSPACE;setPadding(dp(10),dp(8),dp(10),dp(8));setBackgroundColor(Color.rgb(248,250,252))};val copy=Button(this).apply{text="📋 复制回执";setOnClickListener{val cm=getSystemService(CLIPBOARD_SERVICE)as android.content.ClipboardManager;cm.setPrimaryClip(android.content.ClipData.newPlainText("FileBridge回执",receipt.text))}};box.addView(TextView(this).apply{text="回执";textSize=12f;setTextColor(Color.GRAY)});box.addView(receipt,LinearLayout.LayoutParams(-1,dp(130)));box.addView(copy,LinearLayout.LayoutParams(-1,dp(40)).also{it.bottomMargin=dp(8)})
+ val logv=TextView(this).apply{textSize=12f;setTextColor(Color.WHITE);setPadding(dp(8),dp(8),dp(8),dp(8));setBackgroundColor(Color.rgb(15,23,42))};box.addView(TextView(this).apply{text="日志";textSize=12f;setTextColor(Color.GRAY)});box.addView(logv,LinearLayout.LayoutParams(-1,dp(80)))
+ run.setOnClickListener{run.isEnabled=false;val cs=CommandParser.parse(input.text.toString());receipt.text=if(cs.isEmpty())"未发现可执行指令" else cs.map{CommandExecutor(root).execute(it)}.joinToString("\n\n");receipt.scrollTo(0,0);addLog("执行 ${cs.size} 条指令");logv.text=logs.joinToString("\n");Handler(Looper.getMainLooper()).postDelayed({run.isEnabled=true},500)}
+ panel=box;val p=lp(dp(320),WindowManager.LayoutParams.WRAP_CONTENT);p.gravity=Gravity.TOP or Gravity.RIGHT;p.x=dp(72);p.y=dp(200);wm.addView(box,p);box.alpha=0f;box.translationY=dp(8).toFloat();box.animate().alpha(1f).translationY(0f).setDuration(150).start()}
+ private fun closePanel(){panel?.let{wm.removeView(it)};panel=null;ball.alpha=.7f}
+ private fun addLog(s:String){logs.addLast("${SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date())} ✓ $s");while(logs.size>50)logs.removeFirst()}
+ private fun drag(v:View,p:WindowManager.LayoutParams){var sx=0f;var sy=0f;var ox=0;var oy=0;v.setOnTouchListener{_,e->when(e.action){MotionEvent.ACTION_DOWN->{sx=e.rawX;sy=e.rawY;ox=p.x;oy=p.y;v.alpha=1f;true};MotionEvent.ACTION_MOVE->{p.x=ox+(e.rawX-sx).toInt();p.y=oy+(e.rawY-sy).toInt();wm.updateViewLayout(v,p);true};MotionEvent.ACTION_UP->{p.x=0;p.gravity=Gravity.TOP or if(e.rawX<resources.displayMetrics.widthPixels/2)Gravity.LEFT else Gravity.RIGHT;wm.updateViewLayout(v,p);v.alpha=.7f;true};else->false}}}
+ private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))};private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt();override fun onBind(i:Intent?)=null;override fun onDestroy(){panel?.let{wm.removeView(it)};if(::ball.isInitialized)wm.removeView(ball);super.onDestroy()}
+}
