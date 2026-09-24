@@ -255,7 +255,13 @@ override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service",
 
 class ClipboardReaderActivity:Activity(){
 private var consumed=false
-override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);overridePendingTransition(0,0)}
+override fun onCreate(savedInstanceState:Bundle?){
+super.onCreate(savedInstanceState)
+overridePendingTransition(0,0)
+window.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT)
+window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+}
 override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(!hasFocus||consumed)return;consumed=true;val text=runCatching{val cm=getSystemService(CLIPBOARD_SERVICE)as android.content.ClipboardManager;cm.primaryClip?.let{if(it.itemCount>0)it.getItemAt(0).coerceToText(this).toString()else""}?:""}.getOrDefault("");FileBridgeService.clipboardCallback?.invoke(text);overridePendingTransition(0,0);finish()}
 override fun onDestroy(){overridePendingTransition(0,0);super.onDestroy()}
 }
