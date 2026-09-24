@@ -26,3 +26,5 @@ jobs:
         with:
           name: FileBridge-debug-apk
           path: BridgeFS-0.1/app/build/outputs/apk/debug/app-debug.apk
+
+# Trigger cloud build verification.
