@@ -23,3 +23,6 @@ APK：`app/build/outputs/apk/debug/app-debug.apk`
 ## 实现说明
 
 目录选择器返回的 `content://` URI 会在常见 primary/存储卷场景映射为真实路径；无法安全映射时拒绝保存，而不是猜测路径。
+
+
+<!-- build verification retry -->
