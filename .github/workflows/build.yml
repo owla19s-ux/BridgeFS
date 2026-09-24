@@ -15,7 +15,6 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - run: yes | sdkmanager --licenses >/dev/null || true
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -26,5 +25,3 @@ jobs:
         with:
           name: FileBridge-debug-apk
           path: BridgeFS-0.1/app/build/outputs/apk/debug/app-debug.apk
-
-# Trigger cloud build verification.
