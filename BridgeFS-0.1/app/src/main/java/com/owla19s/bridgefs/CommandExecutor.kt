@@ -19,15 +19,16 @@ class CommandExecutor(private val root:File, private val context:Context){
   val binaryExt=setOf("png","jpg","jpeg","gif","webp","bmp","mp3","wav","m4a","aac","mp4","mkv","avi","webm","pdf","zip","rar","7z","apk","so","dex","bin","db","sqlite","ttf","otf")
   fun timedOut()=System.nanoTime()-start>=5_000_000_000L
   fun isBinary(f:File):Boolean{if(f.extension.lowercase()in binaryExt)return true;return try{f.inputStream().use{ins->val b=ByteArray(4096);val n=ins.read(b);n>0&&b.take(n).any{it.toInt()==0}}}catch(e:Exception){false}}
-  root.walkTopDown().forEach{f->
-   if(stopped)return@forEach
-   if(!f.isFile)return@forEach
-   if(timedOut()){s.append("  ⚠ 已达到 5 秒时间上限，停止扫描\n");stopped=true;return@forEach}
-   files++;if(files>500){s.append("  ⚠ 已达到 500 个文件上限，停止扫描\n");stopped=true;return@forEach}
-   if(isBinary(f))return@forEach
+  val iterator=root.walkTopDown().iterator()
+  while(iterator.hasNext()&&!stopped){
+   val f=iterator.next()
+   if(!f.isFile)continue
+   if(timedOut()){s.append("  ⚠ 已达到 5 秒时间上限，停止扫描\n");break}
+   files++;if(files>500){s.append("  ⚠ 已达到 500 个文件上限，停止扫描\n");break}
+   if(isBinary(f))continue
    try{f.bufferedReader(StandardCharsets.UTF_8).useLines{lines->var lineNo=0;for(line in lines){lineNo++;if(timedOut()){s.append("  ⚠ 已达到 5 秒时间上限，停止扫描\n");stopped=true;break};if(line.contains(k,true)){results++;s.append("  ✓ ${f.relativeTo(root).path}:$lineNo: $line\n");if(results>=200){s.append("  ⚠ 已达到 200 条结果上限，停止扫描\n");stopped=true;break}}}}}
    catch(e:Exception){s.append("  ⚠ 读取失败 ${f.relativeTo(root).path}: ${e.message}\n")}
   }
-  if(results==0&&!stopped)s.append("  ✗ 未找到\n");return s.toString()
+  if(results==0&&!stopped&&files<=500&&!timedOut())s.append("  ✗ 未找到\n");return s.toString()
  }
 }
