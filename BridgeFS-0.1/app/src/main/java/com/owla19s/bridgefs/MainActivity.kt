@@ -145,9 +145,9 @@ class MainActivity : Activity() {
 
         box.addView(TextView(this).apply {
             text = "权限状态：\n" +
-                if (Settings.canDrawOverlays(this@MainActivity)) "✅ 悬浮窗权限" else "❌ 悬浮窗权限" +
+                (if (Settings.canDrawOverlays(this@MainActivity)) "✅ 悬浮窗权限" else "❌ 悬浮窗权限") +
                 "\n" +
-                if (Environment.isExternalStorageManager()) "✅ 所有文件访问" else "❌ 所有文件访问"
+                (if (Environment.isExternalStorageManager()) "✅ 所有文件访问" else "❌ 所有文件访问")
             textSize = 14f
             setPadding(0, dp(12), 0, dp(12))
             setOnClickListener {
