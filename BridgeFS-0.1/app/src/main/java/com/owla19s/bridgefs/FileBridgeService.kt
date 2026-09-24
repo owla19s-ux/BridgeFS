@@ -76,7 +76,7 @@ setOnClickListener{showCommandInputDialog(this)}
 }
 commandInput=input
 clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.setSelection(commandInput?.text?.length?:0)}}
-val paste=smallButton("粘贴"){startActivity(Intent(this,ClipboardReaderActivity::class.java))}
+val paste=smallButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
 val run=smallButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
