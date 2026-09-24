@@ -75,7 +75,7 @@ setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
 setOnClickListener{
 try{
 panelLpRef.flags=panelLpRef.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-wm.updateViewLayout(this@FileBridgeService.panel,panelLpRef)
+panel?.let{wm.updateViewLayout(it,panelLpRef)}
 requestFocus()
 post{(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).showSoftInput(this,InputMethodManager.SHOW_IMPLICIT)}
 }catch(e:Exception){log("Error","输入框获取焦点："+e.message)}
@@ -127,8 +127,10 @@ panel=box
 val sw=resources.displayMetrics.widthPixels
 panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
 panelLpRef.gravity=Gravity.TOP or Gravity.LEFT
+panelLpRef.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 panelLpRef.x=(sw-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y
 wm.addView(box,panelLpRef)
+box.post{val maxH=(resources.displayMetrics.heightPixels*.65f).toInt();if(box.height>maxH){panelLpRef.height=maxH;runCatching{wm.updateViewLayout(box,panelLpRef)}}}
 }catch(e:Exception){log("Error","showPanel："+e.message);toast("打开面板失败："+e.message)}
 }
 
