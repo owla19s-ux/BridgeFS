@@ -16,7 +16,7 @@ override fun onCreate(){super.onCreate();running=true;root=File(getSharedPrefere
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
 private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,-3)
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
-private fun showBall(){ball=TextView(this).apply{text="📁";textSize=22f;gravity=17;alpha=.7f;background=bg("#CC1E293B",28,"#6366F1");setOnClickListener{if(alpha<1f){alpha=1f;translationX=0f}else showPanel()}};ballLp=lp(dp(56),dp(56));ballLp.gravity=Gravity.TOP or Gravity.LEFT;ballLp.x=resources.displayMetrics.widthPixels-dp(56);ballLp.y=(resources.displayMetrics.heightPixels*.65).toInt();drag(ball,ballLp,true);wm.addView(ball,ballLp)}
+private fun showBall(){ball=TextView(this).apply{text="📁";textSize=22f;gravity=17;alpha=.7f;background=bg("#CC1E293B",28,"#6366F1");setOnClickListener{if(alpha<1f){alpha=1f;translationX=0f}else showPanel()}};ballLp=lp(dp(56),dp(56));ballLp.gravity=Gravity.TOP or Gravity.LEFT;ballLp.x=resources.displayMetrics.widthPixels-dp(56);ballLp.y=(resources.displayMetrics.heightPixels*.65).toInt();drag(ball,ballLp);wm.addView(ball,ballLp)}
 private fun showPanel(){
 try{
 clearPanel();ball.visibility=View.GONE;log("UI","showPanel")
