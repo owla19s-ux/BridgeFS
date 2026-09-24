@@ -1,13 +1,33 @@
 package com.owla19s.bridgefs
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import java.io.File
 import java.nio.charset.StandardCharsets
-class CommandExecutor(private val root:File){
- fun execute(c:Command):String=when(c){Command.ListTree->list();is Command.Read->read(c.path);is Command.Write->write(c.path,c.content);is Command.Edit->edit(c.path,c.old,c.new);is Command.Search->search(c.glob);is Command.Grep->grep(c.keyword)}
+class CommandExecutor(private val root:File, private val context:Context){
+ fun execute(c:Command):String=when(c){Command.ListTree->list();is Command.Read->read(c.path);is Command.Write->write(c.path,c.content);is Command.Edit->edit(c.path,c.old,c.new);is Command.Search->search(c.glob);is Command.Grep->grep(c.keyword);is Command.Path->path(c.path);is Command.CopyPath->copyPath(c.path)}
  private fun file(p:String)=PathSecurity.safe(root,p)
  private fun list():String{val s=StringBuilder("[Tool: List]\n");root.walkTopDown().filter{it!=root}.forEach{s.append("  ").append(it.relativeTo(root).path).append(if(it.isDirectory)"/" else "").append("\n")};return s.toString()}
  private fun read(p:String):String{val f=file(p)?:return "[Tool: Read] $p\n  ✗ 路径非法或越界\n  — 已中止";if(!f.isFile)return "[Tool: Read] $p\n  ✗ 文件不存在\n  — 已中止";return try {"[Tool: Read] $p\n  ✓ 读取成功\n\n"+f.readText(StandardCharsets.UTF_8)} catch(e:Exception){"[Tool: Read] $p\n  ✗ 读取失败：${e.message}\n  — 已中止"}}
  private fun write(p:String,c:String):String{val f=file(p)?:return "[Tool: Write] $p\n  ✗ 路径非法或越界\n  — 已中止";if(f.exists())return "[Tool: Write] $p\n  ✗ 文件已存在\n  — 已中止";return try{val parent=f.parentFile;val existed=parent?.exists()==true;parent?.mkdirs();f.writeText(c,StandardCharsets.UTF_8);"[Tool: Write] $p\n  "+if(!existed)"✓ 创建目录 ${parent?.relativeTo(root)?.path}/\n  " else ""+"✓ 创建文件 ${f.name}\n  ✓ 写入 ${c.length} 字符\n  ✓ 保存成功"}catch(e:Exception){"[Tool: Write] $p\n  ✗ 写入失败：${e.message}\n  — 已中止"}}
  private fun edit(p:String,o:String,n:String):String{val f=file(p)?:return "[Tool: Edit] $p\n  ✗ 路径非法或越界\n  — 已中止";if(!f.isFile)return "[Tool: Edit] $p\n  ✗ 文件不存在\n  — 已中止";return try{val t=f.readText(StandardCharsets.UTF_8);if(!t.contains(o))return "[Tool: Edit] $p\n  ✗ 找不到旧内容\n  — 当前内容：\n$t";f.writeText(t.replaceFirst(o,n),StandardCharsets.UTF_8);"[Tool: Edit] $p\n  ✓ 找到并替换旧内容\n  ✓ 保存成功"}catch(e:Exception){"[Tool: Edit] $p\n  ✗ 编辑失败：${e.message}\n  — 已中止"}}
  private fun search(g:String):String{val rx=g.replace(".","\\.").replace("*",".*").toRegex(RegexOption.IGNORE_CASE);val a=root.walkTopDown().filter{it.isFile&&rx.matches(it.name)}.map{it.relativeTo(root).path}.toList();return "[Tool: Search] $g\n"+if(a.isEmpty())"  ✗ 未找到\n" else a.joinToString("\n"){"  ✓ $it"}}
- private fun grep(k:String):String{val s=StringBuilder("[Tool: Grep] $k\n");root.walkTopDown().filter{it.isFile&&it.length()<=2000000}.forEach{f->try{f.readLines(StandardCharsets.UTF_8).forEachIndexed{i,l->if(l.contains(k,true))s.append("  ✓ ${f.relativeTo(root).path}:${i+1}: $l\n")}}catch(_:Exception){}};return if(s.length>k.length+14)s.toString() else s.append("  ✗ 未找到\n").toString()}
+ private fun path(p:String):String{val f=file(p)?:return "[Tool: Path] $p\n  ✗ 路径非法或越界\n  — 已中止";return "[Tool: Path] $p\n  ✓ ${f.absolutePath}"}
+ private fun copyPath(p:String):String{val f=file(p)?:return "[Tool: CopyPath] $p\n  ✗ 路径非法或越界\n  — 已中止";return try{val cm=context.getSystemService(Context.CLIPBOARD_SERVICE)as ClipboardManager;cm.setPrimaryClip(ClipData.newPlainText("BridgeFS路径",f.absolutePath));"[Tool: CopyPath] $p\n  ✓ 已复制：${f.absolutePath}"}catch(e:Exception){"[Tool: CopyPath] $p\n  ✗ 复制失败：${e.message}\n  — 已中止"}}
+ private fun grep(k:String):String{
+  val s=StringBuilder("[Tool: Grep] $k\n");val start=System.nanoTime();var files=0;var results=0;var stopped=false
+  val binaryExt=setOf("png","jpg","jpeg","gif","webp","bmp","mp3","wav","m4a","aac","mp4","mkv","avi","webm","pdf","zip","rar","7z","apk","so","dex","bin","db","sqlite","ttf","otf")
+  fun timedOut()=System.nanoTime()-start>=5_000_000_000L
+  fun isBinary(f:File):Boolean{if(f.extension.lowercase()in binaryExt)return true;return try{f.inputStream().use{ins->val b=ByteArray(4096);val n=ins.read(b);n>0&&b.take(n).any{it.toInt()==0}}}catch(e:Exception){false}}
+  root.walkTopDown().forEach{f->
+   if(stopped)return@forEach
+   if(!f.isFile)return@forEach
+   if(timedOut()){s.append("  ⚠ 已达到 5 秒时间上限，停止扫描\n");stopped=true;return@forEach}
+   files++;if(files>500){s.append("  ⚠ 已达到 500 个文件上限，停止扫描\n");stopped=true;return@forEach}
+   if(isBinary(f))return@forEach
+   try{f.bufferedReader(StandardCharsets.UTF_8).useLines{lines->var lineNo=0;for(line in lines){lineNo++;if(timedOut()){s.append("  ⚠ 已达到 5 秒时间上限，停止扫描\n");stopped=true;break};if(line.contains(k,true)){results++;s.append("  ✓ ${f.relativeTo(root).path}:$lineNo: $line\n");if(results>=200){s.append("  ⚠ 已达到 200 条结果上限，停止扫描\n");stopped=true;break}}}}}
+   catch(e:Exception){s.append("  ⚠ 读取失败 ${f.relativeTo(root).path}: ${e.message}\n")}
+  }
+  if(results==0&&!stopped)s.append("  ✗ 未找到\n");return s.toString()
+ }
 }
