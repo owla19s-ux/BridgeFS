@@ -60,6 +60,11 @@ class MainActivity:Activity(){
                 else if(!Environment.isExternalStorageManager())startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:$packageName")))
             }
         })
+        box.addView(Button(this).apply{text="复制崩溃日志路径";setOnClickListener{
+            val cm=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("BridgeFS崩溃日志路径","/sdcard/BridgeFS/logs/latest.log"))
+            Toast.makeText(this@MainActivity,"已复制崩溃日志路径",Toast.LENGTH_SHORT).show()
+        }},LinearLayout.LayoutParams(-1,dp(48)))
         box.addView(Button(this).apply{text="打开悬浮窗";setOnClickListener{
             if(!Settings.canDrawOverlays(this@MainActivity)){startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")));return@setOnClickListener}
             if(!Environment.isExternalStorageManager()){startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:$packageName")));return@setOnClickListener}

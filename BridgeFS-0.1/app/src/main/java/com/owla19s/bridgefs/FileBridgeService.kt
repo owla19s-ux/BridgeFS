@@ -26,9 +26,11 @@ val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val title=TextView(this).apply{text="📁 BridgeFS";textSize=15f;setTypeface(null,1)}
 val help=smallButton("📖"){copyInstructions()}
 val close=smallButton("⌄"){closePanel()}
+val crashLog=smallButton("🧾"){copyText("BridgeFS崩溃日志路径","/sdcard/BridgeFS/logs/latest.log");toast("已复制崩溃日志路径")}
 top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f))
 top.addView(help,LinearLayout.LayoutParams(dp(40),dp(40)).also{it.marginStart=dp(6)})
 top.addView(close,LinearLayout.LayoutParams(dp(40),dp(40)).also{it.marginStart=dp(6)})
+top.addView(crashLog,LinearLayout.LayoutParams(dp(40),dp(40)).also{it.marginStart=dp(6)})
 box.addView(top)
 val address=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val dir=TextView(this).apply{text="📂 "+root.name;if(root.name.isBlank())text="📂 "+root.absolutePath;textSize=13f;setTextColor(Color.rgb(99,102,241));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE}
