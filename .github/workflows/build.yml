@@ -23,9 +23,27 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Restore debug keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
           mkdir -p ~/.android
-          echo "${{ secrets.DEBUG_KEYSTORE_B64 }}" | tr -cd 'A-Za-z0-9+/=' | base64 -d > ~/.android/debug.keystore
+          python3 - <<'PY'
+          import os, base64, re
+          s = os.environ['KEYSTORE_B64']
+          m = re.search(r'===\s*B64_START\s*===(.*?)===\s*B64_END\s*===', s, re.S)
+          if m:
+              s = m.group(1)
+          s = re.sub(r'[^A-Za-z0-9+/=]', '', s)
+          data = base64.b64decode(s)
+          with open(os.path.expanduser('~/.android/debug.keystore'), 'wb') as f:
+              f.write(data)
+          print('keystore bytes:', len(data))
+          PY
+          sha256sum ~/.android/debug.keystore
+      - name: Verify keystore
+        run: |
+          keytool -list -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey | grep SHA256
       - run: gradle :app:assembleDebug
         working-directory: BridgeFS-0.1
       - uses: actions/upload-artifact@v4
