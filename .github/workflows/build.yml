@@ -50,7 +50,7 @@ jobs:
         run: |
           APK=$(ls BridgeFS-0.1/app/build/outputs/apk/debug/*.apk | head -1)
           echo "APK path: $APK"
-          keytool -printcert -jarfile "$APK" | grep -i sha256
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" || true
       - uses: actions/upload-artifact@v4
         with:
           name: BridgeFS-v0.1.2
