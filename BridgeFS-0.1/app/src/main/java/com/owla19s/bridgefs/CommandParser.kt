@@ -8,9 +8,10 @@ sealed class Command {
  data class Grep(val keyword:String):Command()
  data class Path(val path:String):Command()
  data class CopyPath(val path:String):Command()
+ data class Mkdir(val path:String):Command()
 }
 object CommandParser {
- private val simple=Regex("(?m)^\\s*\\[(list)\\]\\s*$|^\\s*\\[(read|search|grep|path|copy-path):\\s*(.*?)\\]\\s*$")
+ private val simple=Regex("(?m)^\\s*\\[(list)\\]\\s*$|^\\s*\\[(read|search|grep|path|copy-path|mkdir):\\s*(.*?)\\]\\s*$")
  private val write=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[write:\\s*(.+?)\\]\\s*\\n(.*?)\\[/write\\]\\s*(?:\\x60\\x60\\x60)?")
  private val edit=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[edit:\\s*(.+?)\\]\\s*\\n(.*?)\\[/edit\\]\\s*(?:\\x60\\x60\\x60)?")
  fun parse(input:String):List<Command>{
@@ -23,6 +24,7 @@ object CommandParser {
     s.startsWith("[search:")->Command.Search(it.groupValues[3].trim())
     s.startsWith("[grep:")->Command.Grep(it.groupValues[3].trim())
     s.startsWith("[path:")->Command.Path(it.groupValues[3].trim())
+    s.startsWith("[mkdir:")->Command.Mkdir(it.groupValues[3].trim())
     else->Command.CopyPath(it.groupValues[3].trim())
    }
   }
