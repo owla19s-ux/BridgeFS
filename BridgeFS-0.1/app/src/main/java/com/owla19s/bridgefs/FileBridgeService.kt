@@ -17,6 +17,7 @@ import java.util.*
 
 class FileBridgeService:Service(){
 private lateinit var wm:WindowManager
+private lateinit var overlayRoot:FrameLayout
 private lateinit var bottom_bar:LinearLayout
 private lateinit var ball:PillOrbView
 private lateinit var bottomBarBrand:TextView
@@ -29,6 +30,11 @@ private var isClosingPanel=false
 private var bottomBarEdgeHidden=0
 private var bottomBarRevealTargetX:Int?=null
 private var bottomBarSnapAnimator:ValueAnimator?=null
+private var bottomBarMoveAnimator:ValueAnimator?=null
+private var floatingRestoreX:Int?=null
+private var floatingRestoreY:Int?=null
+private var bottomBarPanelStartX=0
+private var bottomBarPanelStartY=0
 private var commandInput:EditText?=null
 private lateinit var root:File
 private lateinit var bottomBarLp:WindowManager.LayoutParams
@@ -49,14 +55,33 @@ private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutP
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
 private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
 
+private private fun attachPanelToOverlay(box:LinearLayout,x:Int,y:Int){
+try{
+panel=box
+panelLpRef=bottomBarLp
+bottomBarLp.width=resources.getDimensionPixelSize(R.dimen.panel_width)
+bottomBarLp.height=WindowManager.LayoutParams.WRAP_CONTENT
+bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT
+bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+bottomBarLp.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+bottomBarLp.x=x.coerceAtLeast(0);bottomBarLp.y=y.coerceAtLeast(0)
+if(box.parent!==overlayRoot)overlayRoot.addView(box,0,FrameLayout.LayoutParams(-1,-2,Gravity.TOP or Gravity.LEFT))
+overlayRoot.setOnTouchListener{_,event->if(panel!=null&&event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false}
+box.visibility=View.VISIBLE;ensureRobotState(true);updateBottomBarWindow()
+}catch(e:Exception){log("Error","attach panel："+e.message);runCatching{(box.parent as? ViewGroup)?.removeView(box)};panel=null}
+}
 private fun showBall(){
-val previousHiddenEdge=bottomBarEdgeHidden
+try{
+bottomBarMoveAnimator?.cancel();bottomBarMoveAnimator=null
 bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null;bottomBarRevealTargetX=null
+val previousHiddenEdge=bottomBarEdgeHidden
+if(!::overlayRoot.isInitialized)overlayRoot=FrameLayout(this)
 if(!::bottom_bar.isInitialized){
 ball=PillOrbView(this)
 bottom_bar=LinearLayout(this).apply{
 orientation=LinearLayout.HORIZONTAL
 gravity=Gravity.CENTER_VERTICAL or Gravity.RIGHT
+elevation=dp(12).toFloat()
 isClickable=true
 setPadding(dp(10),0,dp(10),0)
 bottomBarBrand=TextView(this@FileBridgeService).apply{text="BridgeFS";textSize=11f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE}
@@ -64,38 +89,50 @@ addView(bottomBarBrand,LinearLayout.LayoutParams(-2,resources.getDimensionPixelS
 addView(ball,LinearLayout.LayoutParams(dp(32),resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)))
 setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 }
+overlayRoot.addView(bottom_bar,FrameLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height),Gravity.TOP or Gravity.LEFT))
 bottomBarLp=lp(WindowManager.LayoutParams.WRAP_CONTENT,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
-bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT
-bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height),View.MeasureSpec.EXACTLY))
-bottomBarLp.x=(resources.displayMetrics.widthPixels-bottom_bar.measuredWidth).coerceAtLeast(0)
-bottomBarLp.y=(resources.displayMetrics.heightPixels/2-dp(28)).coerceAtLeast(0)
 }
-val oldParent=bottom_bar.parent
-if(oldParent is ViewGroup)oldParent.removeView(bottom_bar)
-else if(oldParent!=null||bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
-bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f
-bottomBarBrand.visibility=View.GONE
+bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f;bottomBarBrand.visibility=View.GONE;ball.visibility=View.VISIBLE
+(bottom_bar.layoutParams as? FrameLayout.LayoutParams)?.let{it.width=WindowManager.LayoutParams.WRAP_CONTENT;it.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height);it.gravity=Gravity.TOP or Gravity.LEFT;it.leftMargin=0;it.topMargin=0;bottom_bar.layoutParams=it}
 (ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=0;ball.layoutParams=it}
-bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height),View.MeasureSpec.EXACTLY))
+ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
+bottomBarLp.width=WindowManager.LayoutParams.WRAP_CONTENT;bottomBarLp.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
+bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT;bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+bottomBarLp.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+bottom_bar.requestLayout();bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(bottomBarLp.height,View.MeasureSpec.EXACTLY))
 val maxFloatingX=(resources.displayMetrics.widthPixels-bottom_bar.measuredWidth).coerceAtLeast(0)
-bottomBarLp.x=when{previousHiddenEdge<0->0;previousHiddenEdge>0->maxFloatingX;else->bottomBarLp.x.coerceIn(0,maxFloatingX)}
-bottom_bar.requestLayout()
-ball.visibility=View.VISIBLE;ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
-bottom_bar.translationX=0f;bottom_bar.translationY=0f
-bottomBarEdgeHidden=0
-bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
-bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
-wm.addView(bottom_bar,bottomBarLp)
+val restoreX=floatingRestoreX;val restoreY=floatingRestoreY
+bottomBarLp.x=when{restoreX!=null->restoreX.coerceIn(0,maxFloatingX);previousHiddenEdge<0->0;previousHiddenEdge>0->maxFloatingX;else->bottomBarLp.x.coerceIn(0,maxFloatingX)}
+if(restoreY!=null)bottomBarLp.y=restoreY.coerceIn(0,(resources.displayMetrics.heightPixels-bottom_bar.measuredHeight).coerceAtLeast(0))
+bottomBarEdgeHidden=0;floatingRestoreX=null;floatingRestoreY=null
+bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate();overlayRoot.invalidate()
+overlayRoot.setOnTouchListener{_,event->if(panel!=null&&event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false}
+if(overlayRoot.isAttachedToWindow)updateBottomBarWindow()else wm.addView(overlayRoot,bottomBarLp)
 ensureRobotState(false)
+}catch(e:Exception){log("Error","showBall："+e.message);runCatching{if(::bottom_bar.isInitialized){bottom_bar.visibility=View.VISIBLE;ball.visibility=View.VISIBLE;ball.invalidate();bottom_bar.invalidate()}}}
 }
 
 private fun ensureRobotState(expanded:Boolean){
 if(!::bottom_bar.isInitialized)return
+try{
 bottom_bar.visibility=View.VISIBLE
 bottomBarBrand.visibility=if(expanded)View.VISIBLE else View.GONE
+(ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=if(expanded)dp(8) else 0;ball.layoutParams=it}
 ball.visibility=View.VISIBLE
-if(expanded){bottomBarBrand.bringToFront();ball.bringToFront()}
-bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
+if(!::bottomBarLp.isInitialized)return
+if(panel==null){
+bottomBarLp.width=WindowManager.LayoutParams.WRAP_CONTENT
+bottomBarLp.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
+(bottom_bar.layoutParams as? FrameLayout.LayoutParams)?.let{it.leftMargin=0;it.topMargin=0;bottom_bar.layoutParams=it}
+}else{
+bottomBarLp.width=resources.getDimensionPixelSize(R.dimen.panel_width)
+bottomBarLp.height=WindowManager.LayoutParams.WRAP_CONTENT
+}
+bottom_bar.requestLayout()
+bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height),View.MeasureSpec.EXACTLY))
+bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate();overlayRoot.invalidate()
+if(overlayRoot.isAttachedToWindow)updateBottomBarWindow()
+}catch(e:Exception){log("Error","ensureRobotState："+e.message);runCatching{ball.visibility=View.VISIBLE;ball.invalidate()}}
 }
 
 private fun showPanel(){
@@ -103,11 +140,11 @@ if(isRenderingMainPanel)return
 isRenderingMainPanel=true
 try{
 bottomBarRevealTargetX?.let{target->bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null;bottomBarLp.x=target;bottomBarRevealTargetX=null;updateBottomBarWindow()}
-val wasFloating=bottom_bar.isAttachedToWindow&&bottom_bar.parent !is ViewGroup
-val origin=if(wasFloating)IntArray(2).also{bottom_bar.getLocationOnScreen(it)}else null
+if(panel==null){floatingRestoreX=bottomBarLp.x;floatingRestoreY=bottomBarLp.y}
+val origin=IntArray(2).also{bottom_bar.getLocationOnScreen(it)}
 clearPanel()
 orbTransitionOrigin=origin
-if(wasFloating)runCatching{wm.removeView(bottom_bar)}
+bottomBarMoveAnimator?.cancel();bottomBarMoveAnimator=null
 log("UI","showPanel")
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
@@ -120,7 +157,7 @@ val dir=TextView(this).apply{
 text=root.absolutePath
 textSize=15f;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setSingleLine(true)
 setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6)
-ellipsize=android.text.TextUtils.TruncateAt.MIDDLE
+ellipsize=android.text.TextUtils.TruncateAt.END
 setOnClickListener{showBrowser()}
 setOnLongClickListener{copyText("BridgeFS路径",root.absolutePath);toast("已复制路径");true}
 }
@@ -187,24 +224,15 @@ addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart
 }
 box.addView(receiptRow,LinearLayout.LayoutParams(-1,-2).also{it.topMargin=dp(8)})
 
-addPanelFooter(box)
-check(bottom_bar.parent===box&&bottomBarBrand.parent===bottom_bar&&ball.parent===bottom_bar){"bottom bar children were not attached"}
+addPanelFooter(box,dp(8))
+check(overlayRoot.isAttachedToWindow&&bottom_bar.parent===overlayRoot&&bottomBarBrand.parent===bottom_bar&&ball.parent===bottom_bar){"persistent overlay host is not attached"}
 box.setPadding(box.paddingLeft,dp(8),box.paddingRight,dp(8))
-(bottom_bar.layoutParams as? LinearLayout.LayoutParams)?.let{it.topMargin=dp(8);bottom_bar.layoutParams=it}
 ensureRobotState(true)
-panel=box
-box.setOnTouchListener{_,event->
-if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false
-}
 val sw=resources.displayMetrics.widthPixels
 val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
-panelLpRef=mainPanelLp(panelWidth,WindowManager.LayoutParams.WRAP_CONTENT)
-panelLpRef.gravity=Gravity.TOP or Gravity.LEFT
-panelLpRef.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
 val barCenter=bottomBarLp.x+bottom_bar.width/2
-panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
-panelLpRef.y=dp(24)
-wm.addView(box,panelLpRef)
+val targetX=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
+attachPanelToOverlay(box,targetX,dp(24))
 }catch(e:Exception){log("Error","showPanel："+e.message);runCatching{clearPanel();showBall()};toast("打开面板失败："+e.message)}finally{isRenderingMainPanel=false}
 }
 
@@ -257,68 +285,71 @@ private fun clearPanel(){
 val current=panel
 panel=null
 runCatching{
-if(::bottom_bar.isInitialized){
-val oldParent=bottom_bar.parent
-if(oldParent is ViewGroup)oldParent.removeView(bottom_bar)
-}
 current?.let{container->
-runCatching{wm.removeView(container)}
-container.removeAllViews()
+runCatching{(container.parent as? ViewGroup)?.removeView(container)}
+runCatching{container.removeAllViews()}
 }
+
 }
 log("UI","clearPanel")
 }
 private fun closePanel(){if(isClosingPanel)return;isClosingPanel=true;try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);showBall();ensureRobotState(false)}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}finally{isClosingPanel=false}}
 
 private var orbTransitionOrigin:IntArray?=null
-private fun addPanelFooter(box:LinearLayout){
-if(Looper.myLooper()!=Looper.getMainLooper()){
-handler.post{addPanelFooter(box)}
-return
-}
+private fun addPanelFooter(box:LinearLayout,topGap:Int=0){
+if(Looper.myLooper()!=Looper.getMainLooper()){handler.post{addPanelFooter(box,topGap)};return}
 try{
 val height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
-val oldParent=bottom_bar.parent
-if(oldParent!=null&&oldParent!==box){
-if(oldParent is ViewGroup)oldParent.removeView(bottom_bar)
-else runCatching{wm.removeView(bottom_bar)}
+ensureRobotState(true)
+val slot=View(this)
+box.addView(slot,LinearLayout.LayoutParams(-1,height).also{it.topMargin=topGap})
+slot.post{runCatching{positionBottomBarAtSlot(box,slot)}.onFailure{log("Error","position footer bar："+it.message)}}
+}catch(e:Exception){log("Error","addPanelFooter："+e.message);runCatching{ensureRobotState(true)}}
 }
-if(bottom_bar.parent==null&&bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
-bottom_bar.visibility=View.VISIBLE
-bottomBarBrand.visibility=View.VISIBLE
-(ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=dp(8);ball.layoutParams=it}
-ball.visibility=View.VISIBLE
-bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
-bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
-if(bottom_bar.parent==null)box.addView(bottom_bar,LinearLayout.LayoutParams(-1,height))
-if(bottom_bar.parent!==box)throw IllegalStateException("bottom_bar could not be attached to panel")
-orbTransitionOrigin?.let{origin->
+private fun positionBottomBarAtSlot(box:LinearLayout,slot:View){
+if(panel!==box||!box.isAttachedToWindow||slot.parent!==box||!::overlayRoot.isInitialized)return
+try{
+ensureRobotState(true)
+val slotLocation=IntArray(2);val hostLocation=IntArray(2)
+slot.getLocationOnScreen(slotLocation);overlayRoot.getLocationOnScreen(hostLocation)
+val p=(bottom_bar.layoutParams as? FrameLayout.LayoutParams)?:FrameLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
+p.width=WindowManager.LayoutParams.WRAP_CONTENT;p.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
+p.gravity=Gravity.TOP or Gravity.LEFT
+p.leftMargin=(slotLocation[0]-hostLocation[0]+slot.width-bottom_bar.measuredWidth).coerceAtLeast(0)
+p.topMargin=(slotLocation[1]-hostLocation[1]).coerceAtLeast(0)
+p.rightMargin=0;p.bottomMargin=0
+bottom_bar.layoutParams=p;bottom_bar.visibility=View.VISIBLE;bottomBarBrand.visibility=View.VISIBLE;ball.visibility=View.VISIBLE
+bottom_bar.invalidate();ball.invalidate();updateBottomBarWindow()
 orbTransitionOrigin=null
-box.post{
-if(bottom_bar.parent===box){
-val target=IntArray(2);bottom_bar.getLocationOnScreen(target)
-bottom_bar.translationX=(origin[0]-target[0]).toFloat()
-bottom_bar.translationY=(origin[1]-target[1]).toFloat()
-bottom_bar.animate().translationX(0f).translationY(0f).setDuration(250L).start()
-}
-}
-}
-}catch(e:Exception){
-log("Error","addPanelFooter："+e.message)
-runCatching{showBall()}
-}
+}catch(e:Exception){log("Error","position footer bar："+e.message);runCatching{ensureRobotState(true)}}
 }
 
+private fun animateBottomBarToPosition(targetX:Int,targetY:Int){
+bottomBarMoveAnimator?.cancel()
+bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null
+val startX=bottomBarLp.x;val startY=bottomBarLp.y
+if(startX==targetX&&startY==targetY){bottomBarLp.x=targetX;bottomBarLp.y=targetY;updateBottomBarWindow();return}
+bottomBarMoveAnimator=ValueAnimator.ofFloat(0f,1f).apply{
+duration=200L
+addUpdateListener{animator->
+val f=animator.animatedValue as Float
+bottomBarLp.x=(startX+(targetX-startX)*f).toInt()
+bottomBarLp.y=(startY+(targetY-startY)*f).toInt()
+updateBottomBarWindow()
+}
+start()
+}
+}
 private fun updateBottomBarWindow(){
-if(isUpdatingBottomBarLayout||!::bottom_bar.isInitialized||!bottom_bar.isAttachedToWindow)return
+if(isUpdatingBottomBarLayout||!::overlayRoot.isInitialized||!overlayRoot.isAttachedToWindow)return
 isUpdatingBottomBarLayout=true
-try{wm.updateViewLayout(bottom_bar,bottomBarLp)}catch(e:Exception){log("Error","update bottom bar："+e.message)}finally{isUpdatingBottomBarLayout=false}
+try{wm.updateViewLayout(overlayRoot,bottomBarLp)}catch(e:Exception){log("Error","update bottom bar："+e.message)}finally{isUpdatingBottomBarLayout=false}
 }
 private fun updatePanelWindow(current:LinearLayout){
-if(isUpdatingPanelLayout||panel!==current)return
+if(isUpdatingPanelLayout||panel!==current||!::overlayRoot.isInitialized||!overlayRoot.isAttachedToWindow)return
 isUpdatingPanelLayout=true
-try{wm.updateViewLayout(current,panelLpRef)}catch(e:Exception){log("Error","update panel："+e.message)}finally{isUpdatingPanelLayout=false}
+try{wm.updateViewLayout(overlayRoot,bottomBarLp)}catch(e:Exception){log("Error","update panel："+e.message)}finally{isUpdatingPanelLayout=false}
 }
 private fun animateBottomBarToX(targetX:Int){
 if(!::bottom_bar.isInitialized)return
@@ -335,13 +366,14 @@ start()
 }
 }
 private fun bottomBarTouchHandler(@Suppress("UNUSED_PARAMETER") view:View,e:MotionEvent):Boolean{
-return when(e.actionMasked){
+return try{
+when(e.actionMasked){
 MotionEvent.ACTION_DOWN->{
+bottomBarMoveAnimator?.cancel();bottomBarMoveAnimator=null
 ball.animate().scaleX(.95f).scaleY(.95f).setDuration(80L).start()
 if(panel==null&&bottomBarEdgeHidden!=0){
 val wasHidden=bottomBarEdgeHidden
-bottomBarSnapAnimator?.cancel()
-bottomBarSnapAnimator=null
+bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null
 bottomBarEdgeHidden=0
 val fullWidthX=if(wasHidden<0)0 else (resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0)
 bottomBarRevealTargetX=fullWidthX
@@ -365,9 +397,7 @@ panelLpRef.y=(bottomBarStartY+dy).toInt().coerceIn(0,(resources.displayMetrics.h
 updatePanelWindow(current)
 }
 }else{
-bottomBarSnapAnimator?.cancel()
-bottomBarSnapAnimator=null
-bottomBarRevealTargetX=null
+bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null;bottomBarRevealTargetX=null
 bottomBarLp.x=(bottomBarStartX+dx).toInt().coerceIn(0,(resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0))
 bottomBarLp.y=(bottomBarStartY+dy).toInt().coerceIn(0,(resources.displayMetrics.heightPixels-bottom_bar.height).coerceAtLeast(0))
 updateBottomBarWindow()
@@ -383,6 +413,7 @@ val current=panel
 if(current!=null){
 val maxX=(resources.displayMetrics.widthPixels-current.width).coerceAtLeast(0)
 panelLpRef.x=panelLpRef.x.coerceIn(0,maxX)
+panelLpRef.y=panelLpRef.y.coerceIn(0,(resources.displayMetrics.heightPixels-current.height).coerceAtLeast(0))
 updatePanelWindow(current)
 }
 }else{
@@ -400,6 +431,7 @@ true
 MotionEvent.ACTION_CANCEL->{ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start();true}
 else->false
 }
+}catch(e:Exception){log("Error","bottom bar touch："+e.message);runCatching{ensureRobotState(panel!=null)};false}
 }
 
 private var bottomBarDownRawX=0f
@@ -462,7 +494,7 @@ val current=browserCurrent?:root
 val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(8),dp(12),dp(12));background=bg("#FFFFFF",16,null)}
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val back=smallButton("←"){if(current.absolutePath==root.absolutePath)showPanel()else{browserCurrent=current.parentFile?:root;renderBrowser()}}
-val rootBtn=TextView(this).apply{text=current.absolutePath;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),0,dp(4),0);setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray);setOnClickListener{showRootList()};setOnLongClickListener{copyText("BridgeFS路径",current.absolutePath);toast("已复制路径");true}}
+val rootBtn=TextView(this).apply{text=current.absolutePath;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),0,dp(4),0);setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray);setOnClickListener{showRootList()};setOnLongClickListener{copyText("BridgeFS路径",current.absolutePath);toast("已复制路径");true}}
 val copy=smallButton("复制当前层"){copyText("BridgeFS目录",browserListing(current));toast("已复制当前层")}.apply{textSize=11f}
 top.addView(back,LinearLayout.LayoutParams(dp(56),dp(40)));top.addView(rootBtn,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(6)});top.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
 box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
@@ -475,10 +507,9 @@ box.addView(ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize
 addPanelFooter(box);panel=box
 val sw=resources.displayMetrics.widthPixels
 val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
-panelLpRef=panelLp(panelWidth,WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;val barCenter=bottomBarLp.x+bottom_bar.width/2
-panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
-panelLpRef.y=dp(24)
-wm.addView(box,panelLpRef)
+val barCenter=bottomBarLp.x+bottom_bar.width/2
+val targetX=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
+attachPanelToOverlay(box,targetX,dp(24))
 }catch(e:Exception){
 log("Error","renderBrowser："+e.message)
 runCatching{clearPanel();showBall()}
@@ -488,16 +519,61 @@ isRenderingBrowser=false
 }
 }
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"文件夹" else "文件")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
-private fun showRootList(){clearPanel();log("UI","showRootList");val rs=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList();val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,"#E0E0E0");elevation=dp(8).toFloat()};val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1);setTextColor(resources.getColor(R.color.bridgefs_text_primary))};val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)));box.addView(top);/* panel drag is restricted to the footer handle */;val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};rs.forEachIndexed{index,path->val row=TextView(this).apply{text=path;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(10),dp(6),dp(10),dp(6));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);setTextColor(resources.getColor(R.color.bridgefs_text_primary));background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray);setOnClickListener{root=File(path);getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply();clearPanel();browserCurrent=root;renderBrowser()}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=if(index==0)dp(4) else dp(2)})};if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(10),dp(12),dp(10),dp(12))});box.addView(ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list)},LinearLayout.LayoutParams(-1,0,1f));addPanelFooter(box);panel=box;val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width);panelLpRef=panelLp(panelWidth,WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;val sw=resources.displayMetrics.widthPixels
-val barCenter=bottomBarLp.x+bottom_bar.width/2
-panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0);panelLpRef.y=dp(24);wm.addView(box,panelLpRef)}
+private fun showRootList(){
+try{
+clearPanel();log("UI","showRootList")
+val roots=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList()
+val box=LinearLayout(this).apply{
+orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12))
+background=bg("#FFFFFF",16,"#E0E0E0");elevation=dp(8).toFloat()
+}
+val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1);setTextColor(resources.getColor(R.color.bridgefs_text_primary))}
+val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}}
+top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)))
+box.addView(top)
+val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+roots.forEachIndexed{index,path->
+val row=LinearLayout(this).apply{
+orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
+setPadding(dp(8),dp(6),dp(8),dp(6))
+background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray)
+val icon=ImageView(this@FileBridgeService).apply{setImageResource(R.drawable.ic_folder)}
+addView(icon,LinearLayout.LayoutParams(dp(20),dp(20)).also{it.marginEnd=dp(8)})
+val labels=LinearLayout(this@FileBridgeService).apply{orientation=LinearLayout.VERTICAL}
+labels.addView(TextView(this@FileBridgeService).apply{
+text=File(path).name.ifBlank{path};textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END
+},LinearLayout.LayoutParams(-1,-2))
+labels.addView(TextView(this@FileBridgeService).apply{
+text=path;textSize=11f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));setSingleLine(false)
+},LinearLayout.LayoutParams(-1,-2))
+addView(labels,LinearLayout.LayoutParams(0,-2,1f))
+setOnClickListener{
+root=File(path)
+getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply()
+clearPanel();browserCurrent=root;renderBrowser()
+}
+}
+row.minimumHeight=dp(56)
+list.addView(row,LinearLayout.LayoutParams(-1,-2).also{it.topMargin=dp(4)})
+}
+if(roots.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));setPadding(dp(10),dp(12),dp(10),dp(12))})
+box.addView(ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list)},LinearLayout.LayoutParams(-1,0,1f))
+addPanelFooter(box);panel=box
+val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
+val screenWidth=resources.displayMetrics.widthPixels
+val barCenter=bottomBarLp.x+bottom_bar.measuredWidth/2
+val targetX=if(barCenter<screenWidth/2)dp(8) else (screenWidth-panelWidth-dp(8)).coerceAtLeast(0)
+attachPanelToOverlay(box,targetX,dp(24))
+}catch(e:Exception){log("Error","showRootList："+e.message);runCatching{clearPanel();showBall()};toast("打开根目录列表失败："+e.message)}
+}
 private fun runLogFile():File{val dir=File("/sdcard/BridgeFS/logs");return if(dir.exists()||dir.mkdirs())File(dir,"run.log")else File(getExternalFilesDir(null),"logs").apply{mkdirs()}.resolve("run.log")}
 private fun log(module:String,message:String){if(!getSharedPreferences("bridgefs",0).getBoolean("run_log_enabled",true))return;val line=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date())+" ["+module+"] "+message.replace("\n","\\n")+"\n";runCatching{val f=runLogFile();val old=if(f.isFile)f.readLines().takeLast(499)else emptyList();f.parentFile?.mkdirs();f.writeText((old+line).joinToString(""))}.onFailure{android.util.Log.e("BridgeFS","run log failed",it)}}
 private fun rippleBg(content:GradientDrawable,colorRes:Int)=RippleDrawable(ColorStateList.valueOf(resources.getColor(colorRes)),content,null)
 private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))}
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
-override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::bottom_bar.isInitialized)runCatching{wm.removeView(bottom_bar)};running=false;super.onDestroy()}
+override override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
 }
 
 class ClipboardReaderActivity:Activity(){
