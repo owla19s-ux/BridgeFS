@@ -279,7 +279,11 @@ class MainActivity : Activity() {
                 })
             }
             scroll.addView(list)
-            val availableHeight = (resources.displayMetrics.heightPixels * .33f).toInt()
+            val dialogMaxHeight = (resources.displayMetrics.heightPixels * .55f).toInt()
+            val fixedChrome = 2 * d(R.dimen.bridgefs_panel_padding) +
+                d(R.dimen.bridgefs_list_row_height) + 2 * d(R.dimen.bridgefs_section_spacing) +
+                d(R.dimen.bridgefs_button_height)
+            val availableHeight = (dialogMaxHeight - fixedChrome).coerceAtLeast(d(R.dimen.bridgefs_list_row_height))
             val contentHeight = dirs.size * (d(R.dimen.bridgefs_list_row_height) + d(R.dimen.bridgefs_section_spacing))
             val viewport = minOf(availableHeight, maxOf(d(R.dimen.bridgefs_list_row_height), contentHeight))
             container.addView(scroll, LinearLayout.LayoutParams(-1, viewport).also {
