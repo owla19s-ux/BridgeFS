@@ -28,8 +28,6 @@ private var isUpdatingBottomBarLayout=false
 private var isUpdatingPanelLayout=false
 private var isClosingPanel=false
 private var bottomBarEdgeHidden=0
-private var bottomBarNeedsSecondTap=false
-private var hasPositionedFloatingRobot=false
 private var bottomBarRevealTargetX:Int?=null
 private var bottomBarSnapAnimator:ValueAnimator?=null
 private var bottomBarMoveAnimator:ValueAnimator?=null
@@ -53,7 +51,7 @@ wm=getSystemService(WINDOW_SERVICE)as WindowManager
 log("Service","onCreate");showBall()
 }
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
-private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,-3)
+private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,-3)
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
 private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
 
@@ -99,22 +97,14 @@ bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f;bottomBarBrand.visibility
 (ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=0;ball.layoutParams=it}
 ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
 bottomBarLp.width=WindowManager.LayoutParams.WRAP_CONTENT;bottomBarLp.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
-bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT;bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT;bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 bottomBarLp.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
 bottom_bar.requestLayout();bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(bottomBarLp.height,View.MeasureSpec.EXACTLY))
-val screenWidth=resources.displayMetrics.widthPixels
-val screenHeight=resources.displayMetrics.heightPixels
-val maxFloatingX=(screenWidth-bottom_bar.measuredWidth).coerceAtLeast(0)
+val maxFloatingX=(resources.displayMetrics.widthPixels-bottom_bar.measuredWidth).coerceAtLeast(0)
 val restoreX=floatingRestoreX;val restoreY=floatingRestoreY
-if(!hasPositionedFloatingRobot){
-bottomBarLp.x=(screenWidth-dp(32)-dp(16)-dp(10)).coerceIn(0,maxFloatingX)
-bottomBarLp.y=(screenHeight/2-dp(56)/2).coerceIn(0,(screenHeight-bottom_bar.measuredHeight).coerceAtLeast(0))
-hasPositionedFloatingRobot=true
-}else{
 bottomBarLp.x=when{restoreX!=null->restoreX.coerceIn(0,maxFloatingX);previousHiddenEdge<0->0;previousHiddenEdge>0->maxFloatingX;else->bottomBarLp.x.coerceIn(0,maxFloatingX)}
-if(restoreY!=null)bottomBarLp.y=restoreY.coerceIn(0,(screenHeight-bottom_bar.measuredHeight).coerceAtLeast(0))
-}
-bottomBarEdgeHidden=0;bottomBarNeedsSecondTap=false;floatingRestoreX=null;floatingRestoreY=null
+if(restoreY!=null)bottomBarLp.y=restoreY.coerceIn(0,(resources.displayMetrics.heightPixels-bottom_bar.measuredHeight).coerceAtLeast(0))
+bottomBarEdgeHidden=0;floatingRestoreX=null;floatingRestoreY=null
 bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate();overlayRoot.invalidate()
 overlayRoot.setOnTouchListener{_,event->if(panel!=null&&event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false}
 if(overlayRoot.isAttachedToWindow)updateBottomBarWindow()else wm.addView(overlayRoot,bottomBarLp)
@@ -365,10 +355,12 @@ private fun animateBottomBarToX(targetX:Int){
 if(!::bottom_bar.isInitialized)return
 bottomBarSnapAnimator?.cancel()
 val startX=bottomBarLp.x
+bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT
 if(startX==targetX){bottomBarLp.x=targetX;updateBottomBarWindow();return}
 bottomBarSnapAnimator=ValueAnimator.ofInt(startX,targetX).apply{
 duration=150L
 addUpdateListener{animator->
+bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT
 bottomBarLp.x=animator.animatedValue as Int
 updateBottomBarWindow()
 }
@@ -385,11 +377,8 @@ if(panel==null&&bottomBarEdgeHidden!=0){
 val wasHidden=bottomBarEdgeHidden
 bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null
 bottomBarEdgeHidden=0
-val robotWidth=dp(32)
-val inset=dp(10)
-val fullWidthX=if(wasHidden<0)-inset else (resources.displayMetrics.widthPixels-robotWidth-inset).coerceAtLeast(0)
+val fullWidthX=if(wasHidden<0)0 else (resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0)
 bottomBarRevealTargetX=fullWidthX
-bottomBarNeedsSecondTap=true
 animateBottomBarToX(fullWidthX)
 }
 bottomBarDownRawX=e.rawX;bottomBarDownRawY=e.rawY
@@ -400,7 +389,7 @@ true
 }
 MotionEvent.ACTION_MOVE->{
 val dx=e.rawX-bottomBarDownRawX;val dy=e.rawY-bottomBarDownRawY
-if(kotlin.math.abs(dx)>dp(4)||kotlin.math.abs(dy)>dp(4))bottomBarMoved=true
+if(kotlin.math.abs(dx)>dp(5)||kotlin.math.abs(dy)>dp(5))bottomBarMoved=true
 if(bottomBarMoved){
 if(bottomBarDragInPanel){
 val current=panel
@@ -420,8 +409,7 @@ true
 }
 MotionEvent.ACTION_UP->{
 ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
-if(!bottomBarMoved){if(bottomBarNeedsSecondTap){bottomBarNeedsSecondTap=false;return true};if(panel==null)showPanel()else closePanel();return true}
-bottomBarNeedsSecondTap=false
+if(!bottomBarMoved){if(panel==null)showPanel()else closePanel();return true}
 if(bottomBarDragInPanel){
 val current=panel
 if(current!=null){
@@ -432,19 +420,17 @@ updatePanelWindow(current)
 }
 }else{
 val sw=resources.displayMetrics.widthPixels
-val robotWidth=dp(32)
-val normalX=bottomBarLp.x.coerceIn(0,(sw-bottom_bar.width).coerceAtLeast(0))
-bottomBarLp.x=normalX
-val robotCenterX=normalX+dp(10)+robotWidth/2
+val x=bottomBarLp.x.coerceIn(0,(sw-bottom_bar.width).coerceAtLeast(0))
+bottomBarLp.x=x
 when{
-robotCenterX<sw/4->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+robotWidth/2))}
-robotCenterX>sw*3/4->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-(robotWidth/2))}
+x<sw/4->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
+x>sw*3/4->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
 else->{bottomBarEdgeHidden=0;updateBottomBarWindow()}
 }
 }
 true
 }
-MotionEvent.ACTION_CANCEL->{bottomBarNeedsSecondTap=false;ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start();true}
+MotionEvent.ACTION_CANCEL->{ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start();true}
 else->false
 }
 }catch(e:Exception){log("Error","bottom bar touch："+e.message);runCatching{ensureRobotState(panel!=null)};false}
