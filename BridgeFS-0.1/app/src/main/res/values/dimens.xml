@@ -13,4 +13,5 @@
     <dimen name="bridgefs_title_text_size">15sp</dimen>
     <dimen name="bridgefs_body_text_size">13sp</dimen>
     <dimen name="bridgefs_aux_text_size">11sp</dimen>
+    <dimen name="bridgefs_file_list_max_height">300dp</dimen>
 </resources>
