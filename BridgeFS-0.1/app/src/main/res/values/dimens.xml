@@ -7,7 +7,7 @@
     <dimen name="directory_list_max_height">300dp</dimen>
     <dimen name="directory_row_padding">16dp</dimen>
     <dimen name="directory_row_corner_radius">8dp</dimen>
-    <dimen name="directory_icon_size">20dp</dimen>
+    <dimen name="directory_icon_size">24dp</dimen>
     <dimen name="directory_icon_gap">8dp</dimen>
     <dimen name="directory_check_width">40dp</dimen>
     <dimen name="directory_arrow_width">28dp</dimen>

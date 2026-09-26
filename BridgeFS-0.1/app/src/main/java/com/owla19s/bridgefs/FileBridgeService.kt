@@ -443,20 +443,124 @@ private fun findReceipt(v:View):TextView?{if(v is TextView&&v.text.toString()=="
 private fun smallButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun mainButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;minimumHeight=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun showHelpDialog(){
-val message="""可用指令：
-[list] 列出项目目录
-[read: 相对路径] 读取文件
-[write: 相对路径]...[/write] 新建或写入文件
-[edit: 相对路径]...====...[/edit] 编辑文件
-[search: *.xx] 按文件名搜索
-[grep: 关键词] 按内容搜索
-[path: 路径] 获取完整绝对路径
-[copy-path: 路径] 复制路径
+val message="""【BridgeFS 完整使用手册】
 
-路径默认相对于项目根目录；可以一次发送多条指令。"""
-val dialog=AlertDialog.Builder(this).setTitle("指令帮助").setMessage(message).setNegativeButton("关闭",null).setPositiveButton("复制全部指令"){_,_->copyText("BridgeFS说明书",message);toast("已复制全部指令")}.create()
+【使用提示】
+本说明可整体复制发给 AI，AI 将根据本说明自动生成正确格式的指令。用户只需把 AI 生成的指令粘贴回 BridgeFS 执行即可。
+
+【一、BridgeFS 是什么？】
+BridgeFS 是一款运行在 Android 设备上的悬浮窗文件管理工具。它的核心作用是：让 AI 获得读写手机本地文件的能力。
+
+【二、用户操作指南】
+1. 设定工作区（根目录）：在 BridgeFS 主界面点击“+ 添加目录”，选择 AI 可以操作的文件夹（例如 资料区 或 Download）。勾选即生效，取消勾选即移除。
+   - 安全提示：禁止将内置存储根目录、Android/data、Android/obb 等系统目录设为工作区。
+   - 选择 Download 等常用目录时，请确保不会影响其他应用的使用。
+   - 本软件【没有删除文件】的功能，AI 无法删除任何文件。
+2. 与 AI 配合流程：
+   - 用户在 AI 那里提出需求（例如：“帮我把一段话保存到 资料区/test.txt”）。
+   - AI 生成 BridgeFS 格式的指令块。
+   - 用户复制指令到 BridgeFS 悬浮窗输入框，点击【执行】。
+3. 悬浮窗操作技巧：
+   - 点击机器人：展开/收起面板。
+   - 拖动机器人或底部 BridgeFS 文字：移动面板。
+   - 点击 `!`：调出本说明，并可一键复制发给 AI。
+   - 机器人拖到屏幕边缘：自动隐藏一半，点击弹出。
+4. 常见问题排查：
+   - 执行失败请检查是否使用了绝对路径（不支持绝对路径，请用相对路径）。
+   - 若软件自动关闭，请检查悬浮窗权限和后台保活设置。
+
+【三、AI 指令生成规范（请 AI 阅读以下规则）】
+1. 路径规则：所有路径必须使用【相对路径】（相对于用户设定的根目录）。不支持绝对路径（如 /storage/emulated/0/），否则会被安全校验拒绝。
+2. 多条指令：可一次发送多条指令，按顺序执行。
+3. 换行保留：包含内容的指令，换行符会被严格保留，不要随意多加空行。
+
+【四、指令模板与说明】
+[list]
+  - 列出当前目录的内容。
+
+[read: 相对路径]
+  - 读取文件。
+  - 示例：[read: 文档/test.txt]
+
+[write: 相对路径]
+  - 新建或覆盖写入文件。
+  - 内容必须写在下一行，并以 [/write] 结束（前后需换行）。
+  - 示例：
+    [write: 资料区/test.txt]
+    这是写入的内容
+    [/write]
+
+[edit: 相对路径]
+  - 修改文件内容，支持“查找替换”。
+  - 必须包含“====”分隔符，上方为旧内容，下方为新内容，并以 [/edit] 结束。
+  - 示例：
+    [edit: 资料区/test.txt]
+    旧内容
+    ====
+    新内容
+    [/edit]
+
+[search: *.后缀]
+  - 按文件名搜索。
+  - 示例：[search: *.json]
+
+[grep: 关键词]
+  - 按文件内容搜索。
+
+[path: 相对路径]
+  - 获取文件的完整绝对路径（用于查看）。
+
+[copy-path: 相对路径]
+  - 复制文件的绝对路径到剪贴板。
+
+[mkdir: 相对路径]
+  - 新建文件夹。
+  - 示例：[mkdir: 资料区/新建文件夹]"""
+val dialog=Dialog(this)
 dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+val content=LinearLayout(this).apply{
+orientation=LinearLayout.VERTICAL
+setPadding(dp(12),dp(12),dp(12),dp(12))
+background=bg("#FFFFFF",16,"#E0E0E0")
+elevation=dp(8).toFloat()
+}
+content.addView(TextView(this).apply{
+text="BridgeFS 使用手册"
+textSize=15f
+setTypeface(null,1)
+setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+gravity=Gravity.CENTER_VERTICAL
+},LinearLayout.LayoutParams(-1,dp(40)))
+val manualText=TextView(this).apply{
+text=message
+textSize=12f
+typeface=android.graphics.Typeface.MONOSPACE
+setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+setLineSpacing(dp(4).toFloat(),1f)
+setPadding(dp(10),dp(8),dp(10),dp(8))
+}
+val scroll=object:ScrollView(this){
+override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
+val maxHeight=dp(480)
+val mode=View.MeasureSpec.getMode(heightMeasureSpec)
+val available=if(mode==View.MeasureSpec.UNSPECIFIED)maxHeight else minOf(View.MeasureSpec.getSize(heightMeasureSpec),maxHeight)
+super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(available,View.MeasureSpec.AT_MOST))
+}
+}.apply{
+isFillViewport=false
+isVerticalScrollBarEnabled=true
+scrollBarSize=dp(2)
+addView(manualText,ViewGroup.LayoutParams(-1,-2))
+}
+content.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(4)})
+val copy=smallButton("复制全部指令"){copyText("BridgeFS 完整使用手册",message);toast("已复制完整使用手册")}.apply{textSize=8f;setSingleLine(true);maxLines=1;contentDescription="复制全部指令"}
+val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
+actions.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)))
+content.addView(actions,LinearLayout.LayoutParams(-1,dp(40)).apply{topMargin=dp(8)})
+dialog.setContentView(content)
+dialog.setOnDismissListener { }
 dialog.show()
+dialog.window?.setLayout(resources.getDimensionPixelSize(R.dimen.panel_width),WindowManager.LayoutParams.WRAP_CONTENT)
 }
 private fun copyText(label:String,text:String){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.setPrimaryClip(ClipData.newPlainText(label,text))}
 private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，它可以读写我手机里的文件。
@@ -517,6 +621,25 @@ isRenderingBrowser=false
 }
 }
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"文件夹" else "文件")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
+private fun isProtectedWorkspace(path:String):Boolean{
+val candidate=runCatching{File(path).canonicalPath.trimEnd('/')}.getOrElse{File(path).absolutePath.trimEnd('/')}
+val storageRoot=runCatching{Environment.getExternalStorageDirectory().canonicalPath.trimEnd('/')}.getOrElse{Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')}
+if(candidate.equals(storageRoot,true))return true
+val segments=candidate.split('/').filter{it.isNotEmpty()}
+return segments.zipWithNext().any{(parent,child)->parent.equals("Android",true)&&(child.equals("data",true)||child.equals("obb",true)||child.equals("media",true))}
+}
+private fun activateWorkspace(path:String,onConfirm:()->Unit){
+if(isProtectedWorkspace(path)){toast("此目录属于系统受保护区域，无法作为工作区");return}
+val activate={onConfirm()}
+if(File(path).name.equals("Download",true)){
+AlertDialog.Builder(this)
+.setTitle("请确认选择下载目录")
+.setMessage("该目录常用于存储系统下载文件。AI 在此处创建或修改文件可能会与常规下载内容混淆。确认将此处设为工作区吗？")
+.setNegativeButton("取消",null)
+.setPositiveButton("确认"){_,_->activate()}
+.show()
+}else activate()
+}
 private fun showRootList(){
 try{
 clearPanel();log("UI","showRootList")
@@ -545,9 +668,11 @@ setTextColor(resources.getColor(R.color.bridgefs_text_primary));setSingleLine(tr
 }
 addView(name,LinearLayout.LayoutParams(0,-1,1f))
 setOnClickListener{
+activateWorkspace(path){
 root=File(path)
 getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply()
 clearPanel();browserCurrent=root;renderBrowser()
+}
 }
 }
 list.addView(row,LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_row_height)))
@@ -555,8 +680,10 @@ list.addView(row,LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_row_height
 if(roots.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL;setPadding(dimen(R.dimen.directory_row_padding),0,dimen(R.dimen.directory_row_padding),0)},LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_row_height)))
 val rowHeight=dimen(R.dimen.directory_row_height)
 val listHeight=(rowHeight*roots.size.coerceAtLeast(1)).coerceAtMost(dimen(R.dimen.directory_list_max_height))
+val boundedList=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
 val scroller=ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list,ViewGroup.LayoutParams(-1,-2))}
-box.addView(scroller,LinearLayout.LayoutParams(-1,listHeight))
+boundedList.addView(scroller,LinearLayout.LayoutParams(-1,0,1f))
+box.addView(boundedList,LinearLayout.LayoutParams(-1,listHeight))
 addPanelFooter(box);panel=box
 val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
 val screenWidth=resources.displayMetrics.widthPixels
