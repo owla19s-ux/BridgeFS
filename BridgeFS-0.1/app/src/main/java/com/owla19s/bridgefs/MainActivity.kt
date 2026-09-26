@@ -98,9 +98,14 @@ class MainActivity : Activity() {
         roots().forEach { path ->
             val row = TextView(this).apply {
                 text = "📂 " + File(path).name.ifBlank { path } + "\n" + path
-                textSize = 14f
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                setBackgroundColor(if (path == prefs.getString("root_path", null)) Color.rgb(224, 231, 255) else Color.WHITE)
+                textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+                maxLines = 2
+                setPadding(dp(10), 0, dp(10), 0)
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(
+                    if (path == prefs.getString("root_path", null)) R.color.bridgefs_selected_background else R.color.bridgefs_panel_background,
+                    R.dimen.bridgefs_card_corner_radius
+                )
                 setOnClickListener { activate(path) }
                 var downX = 0f
                 setOnTouchListener { _, e ->
@@ -181,7 +186,7 @@ class MainActivity : Activity() {
         }
         overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
         overlayRow.addView(autoSwitch, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
-        overlayRow.addView(open, LinearLayout.LayoutParams(0, dp(44), 1f))
+        overlayRow.addView(open, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
         box.addView(overlayRow, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_button_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
 
         val logRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -190,7 +195,7 @@ class MainActivity : Activity() {
             textSize = 13f
             setTextColor(Color.DKGRAY)
             gravity = Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        }, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
         val logSwitch = Switch(this).apply {
             isChecked = prefs.getBoolean("run_log_enabled", true)
             setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("run_log_enabled", checked).apply() }
