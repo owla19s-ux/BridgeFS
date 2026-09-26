@@ -5,6 +5,7 @@ on:
       - 'BridgeFS-0.1/**'
       - '.github/workflows/build.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - first-batch-test
     paths:
