@@ -4,6 +4,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -11,6 +14,7 @@ import android.provider.Settings
 import android.view.MotionEvent
 import android.view.View
 import android.view.Gravity
+import android.view.WindowManager
 import android.widget.*
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -94,10 +98,13 @@ class MainActivity : Activity() {
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         roots().forEach { path ->
             val row = TextView(this).apply {
-                text = "📂 " + File(path).name.ifBlank { path } + "\n" + path
+                text = File(path).name.ifBlank { path } + "\n" + path
+                setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder, 0, 0, 0)
+                compoundDrawablePadding = dp(6)
                 textSize = 14f
                 setPadding(dp(12), dp(10), dp(12), dp(10))
-                setBackgroundColor(if (path == prefs.getString("root_path", null)) Color.rgb(224, 231, 255) else Color.WHITE)
+                setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+                background = rowRipple(if (path == prefs.getString("root_path", null)) Color.rgb(255, 243, 232) else resources.getColor(R.color.bridgefs_surface))
                 setOnClickListener { activate(path) }
                 var downX = 0f
                 setOnTouchListener { _, e ->
@@ -226,15 +233,15 @@ class MainActivity : Activity() {
     private inner class DirectoryDialog {
         private val dialog = AlertDialog.Builder(this@MainActivity).create()
         private val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(12), dp(12), dp(12)) }
-        private val pathView = TextView(this@MainActivity).apply { textSize = 13f }
-        fun show() { dialog.setView(container); renderPicker(); dialog.show() }
+        private val pathView = TextView(this@MainActivity).apply { textSize = 13f; setTextColor(resources.getColor(R.color.bridgefs_text_primary)) }
+        fun show() { dialog.setView(container); renderPicker(); dialog.show();dialog.window?.setLayout(resources.getDimensionPixelSize(R.dimen.panel_width),WindowManager.LayoutParams.WRAP_CONTENT) }
         private fun renderPicker() {
             pathView.text = "当前目录：\n" + pickerPath.absolutePath
             container.removeAllViews();container.addView(pathView)
             val scroll = ScrollView(this@MainActivity)
             val list = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
             pickerPath.listFiles()?.filter { it.isDirectory }.orEmpty().sortedBy { it.name.lowercase(Locale.getDefault()) }.forEach { dir ->
-                list.addView(Button(this@MainActivity).apply { text = "📂 " + dir.name; setOnClickListener { pickerPath = dir; renderPicker() } })
+                list.addView(Button(this@MainActivity).apply { text = dir.name; textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=rowRipple(resources.getColor(R.color.bridgefs_button_bg));setOnClickListener { pickerPath = dir; renderPicker() } },LinearLayout.LayoutParams(-1,dp(48)))
             }
             scroll.addView(list);container.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -243,5 +250,6 @@ class MainActivity : Activity() {
             container.addView(actions)
         }
     }
+    private fun rowRipple(fill:Int)=RippleDrawable(ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_gray)),GradientDrawable().apply{setColor(fill);cornerRadius=dp(8).toFloat()},null)
     private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 }

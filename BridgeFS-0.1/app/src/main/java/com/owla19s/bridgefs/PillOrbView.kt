@@ -6,14 +6,24 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Outline
 import android.graphics.RectF
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.animation.LinearInterpolator
 
 class PillOrbView(context: Context) : View(context) {
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var eyeScaleY = 1f
+    init {
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, view.width / 2f)
+            }
+        }
+        elevation = 2f * density
+    }
     private val blinkAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 9_000L
         repeatCount = ValueAnimator.INFINITE
