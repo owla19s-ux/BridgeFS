@@ -16,6 +16,8 @@ class FileBridgeService:Service(){
 private lateinit var wm:WindowManager
 private lateinit var ball:PillOrbView
 private var panel:LinearLayout?=null
+private var footerView:LinearLayout?=null
+private var isRenderingBrowser=false
 private var commandInput:EditText?=null
 private lateinit var root:File
 private lateinit var ballLp:WindowManager.LayoutParams
@@ -49,7 +51,12 @@ drag(ball,ballLp);wm.addView(ball,ballLp)
 
 private fun showPanel(){
 try{
-clearPanel();val origin=IntArray(2);ball.getLocationOnScreen(origin);orbTransitionOrigin=origin;runCatching{wm.removeView(ball)};log("UI","showPanel")
+val wasFloating=ball.isAttachedToWindow&&ball.parent !is ViewGroup
+val origin=if(wasFloating)IntArray(2).also{ball.getLocationOnScreen(it)}else null
+clearPanel()
+orbTransitionOrigin=origin
+if(wasFloating)runCatching{wm.removeView(ball)}
+log("UI","showPanel")
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,null)
 }
@@ -107,7 +114,7 @@ panelLpRef.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 panelLpRef.x=(sw-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y
 wm.addView(box,panelLpRef)
 box.post{val maxH=(resources.displayMetrics.heightPixels*.65f).toInt();if(box.height>maxH){panelLpRef.height=maxH;runCatching{wm.updateViewLayout(box,panelLpRef)}}}
-}catch(e:Exception){log("Error","showPanel："+e.message);toast("打开面板失败："+e.message)}
+}catch(e:Exception){log("Error","showPanel："+e.message);runCatching{clearPanel();showBall()};toast("打开面板失败："+e.message)}
 }
 
 private var inputDialog:Dialog?=null
@@ -156,25 +163,61 @@ private fun showCommandInputDialog(target:EditText){
 }
 
 private fun clearPanel(){
-runCatching{panel?.let{wm.removeView(it)}}
+val current=panel
 panel=null
+runCatching{
+footerView?.let{footer->
+val oldParent=footer.parent
+if(oldParent is ViewGroup)oldParent.removeView(footer)
+}
+current?.let{container->
+runCatching{wm.removeView(container)}
+container.removeAllViews()
+}
+}
 log("UI","clearPanel")
 }
 private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);showBall()}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
 
 private var orbTransitionOrigin:IntArray?=null
 private fun addPanelFooter(box:LinearLayout){
+if(Looper.myLooper()!=Looper.getMainLooper()){
+handler.post{addPanelFooter(box)}
+return
+}
+try{
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
-val handle=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL or Gravity.RIGHT;orientation=LinearLayout.HORIZONTAL;elevation=dp(8).toFloat()}
-val brand=TextView(this).apply{text="BridgeFS";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,dp(4),0)}
-handle.addView(brand,LinearLayout.LayoutParams(-2,dp(56)))
-handle.addView(ball,LinearLayout.LayoutParams(dp(40),dp(56)).also{it.marginEnd=dp(10)})
+val footer=footerView?:LinearLayout(this).apply{
+gravity=Gravity.CENTER_VERTICAL or Gravity.RIGHT
+orientation=LinearLayout.HORIZONTAL
+elevation=dp(8).toFloat()
+val brand=TextView(this@FileBridgeService).apply{
+text="BridgeFS";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,dp(4),0)
+}
+addView(brand,LinearLayout.LayoutParams(-2,dp(56)))
+addView(View(this@FileBridgeService),LinearLayout.LayoutParams(0,dp(1),1f))
 val touch=View.OnTouchListener{v,e->panelDragHandler(v,e)}
-handle.setOnTouchListener(touch);brand.setOnTouchListener(touch);ball.setOnTouchListener(touch)
-box.addView(handle,LinearLayout.LayoutParams(-1,dp(56)))
+setOnTouchListener(touch);brand.setOnTouchListener(touch)
+}.also{footerView=it}
+val oldParent=footer.parent
+if(oldParent!=null&&oldParent!==box){
+if(oldParent is ViewGroup)oldParent.removeView(footer)
+else throw IllegalStateException("Footer parent is not a ViewGroup")
+}
+val orbParent=ball.parent
+if(orbParent!==footer){
+if(orbParent is ViewGroup)orbParent.removeView(ball)
+else if(orbParent!=null||ball.isAttachedToWindow)runCatching{wm.removeView(ball)}
+footer.addView(ball,LinearLayout.LayoutParams(dp(40),dp(56)).also{it.marginEnd=dp(10)})
+}
+val touch=View.OnTouchListener{v,e->panelDragHandler(v,e)}
+ball.setOnTouchListener(touch)
+if(footer.parent==null)box.addView(footer,LinearLayout.LayoutParams(-1,dp(56)))
+if(footer.parent!==box)throw IllegalStateException("Footer could not be attached to panel")
 orbTransitionOrigin?.let{origin->
 orbTransitionOrigin=null
 box.post{
+if(ball.parent===footer){
 val target=IntArray(2);ball.getLocationOnScreen(target)
 ball.translationX=(origin[0]-target[0]).toFloat()
 ball.translationY=(origin[1]-target[1]).toFloat()
@@ -182,6 +225,12 @@ ball.animate().translationX(0f).translationY(0f).setDuration(250L).start()
 }
 }
 }
+}catch(e:Exception){
+log("Error","addPanelFooter："+e.message)
+runCatching{showBall()}
+}
+}
+
 private fun panelDragHandler(@Suppress("UNUSED_PARAMETER") v:View,e:MotionEvent):Boolean{
 if(panel==null)return false
 return when(e.actionMasked){
@@ -219,9 +268,16 @@ private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，�
 - 一次可以发多条指令，我会按顺序执行
 - 执行结果会贴回来给你
 """;copyText("BridgeFS说明书",text);toast("已复制到剪贴板")}
-private fun showBrowser(){try{clearPanel();browserCurrent=root;log("UI","showBrowser");renderBrowser()}catch(e:Exception){log("Error","showBrowser："+e.message);toast("打开浏览器失败："+e.message)}}
+private fun showBrowser(){try{browserCurrent=root;log("UI","showBrowser");renderBrowser()}catch(e:Exception){log("Error","showBrowser："+e.message);toast("打开浏览器失败："+e.message)}}
 private var browserCurrent:File?=null
 private fun renderBrowser(){
+if(Looper.myLooper()!=Looper.getMainLooper()){
+handler.post{renderBrowser()}
+return
+}
+if(isRenderingBrowser)return
+isRenderingBrowser=true
+try{
 clearPanel();log("UI","renderBrowser")
 val current=browserCurrent?:root
 val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(8),dp(12),dp(12));background=bg("#FFFFFF",16,null)}
@@ -241,6 +297,13 @@ addPanelFooter(box);panel=box
 val sw=resources.displayMetrics.widthPixels
 panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;panelLpRef.x=(sw-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y
 wm.addView(box,panelLpRef)
+}catch(e:Exception){
+log("Error","renderBrowser："+e.message)
+runCatching{clearPanel();showBall()}
+toast("打开目录失败："+e.message)
+}finally{
+isRenderingBrowser=false
+}
 }
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return "📁 "+current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"📁" else "📄")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
 private fun showRootList(){clearPanel();log("UI","showRootList");val rs=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList();val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,null)};val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1)};val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)));box.addView(top);/* panel drag is restricted to the footer handle */;val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};rs.forEachIndexed{index,path->val row=TextView(this).apply{text="📂 "+path;textSize=13f;setPadding(dp(10),dp(10),dp(10),dp(10));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setOnClickListener{root=File(path);getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply();clearPanel();browserCurrent=root;renderBrowser()}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=if(index==0)dp(4) else dp(2)})};if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(10),dp(12),dp(10),dp(12))});box.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,0,1f));addPanelFooter(box);panel=box;panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;panelLpRef.x=(resources.displayMetrics.widthPixels-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y;wm.addView(box,panelLpRef)}
