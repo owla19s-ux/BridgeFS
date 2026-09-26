@@ -4,12 +4,15 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import androidx.core.content.ContextCompat
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.Gravity
 import android.widget.*
 import androidx.core.view.ViewCompat
@@ -67,18 +70,18 @@ class MainActivity : Activity() {
     private fun render() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(20), dp(20), dp(20))
+            setPadding(d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding))
         }
         ViewCompat.setOnApplyWindowInsetsListener(box) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(dp(20) + bars.left, dp(20) + bars.top, dp(20) + bars.right, dp(20) + bars.bottom)
+            v.setPadding(d(R.dimen.bridgefs_panel_padding) + bars.left, d(R.dimen.bridgefs_panel_padding) + bars.top, d(R.dimen.bridgefs_panel_padding) + bars.right, d(R.dimen.bridgefs_panel_padding) + bars.bottom)
             insets
         }
 
         val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         titleRow.addView(TextView(this).apply {
             text = "BridgeFS"
-            textSize = 24f
+            textSize = d(R.dimen.bridgefs_title_text_size) / resources.displayMetrics.scaledDensity
             setTypeface(null, 1)
         }, LinearLayout.LayoutParams(0, dp(48), 1f))
         titleRow.addView(TextView(this).apply {
@@ -89,7 +92,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(56), dp(48)))
         box.addView(titleRow)
 
-        box.addView(TextView(this).apply { text = "目录"; textSize = 15f }, LinearLayout.LayoutParams(-1, dp(32)))
+        box.addView(TextView(this).apply { text = "目录"; textSize = d(R.dimen.bridgefs_title_text_size) / resources.displayMetrics.scaledDensity; setTextColor(color(R.color.bridgefs_text_primary)) }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_row_height)))
 
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         roots().forEach { path ->
@@ -123,7 +126,7 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            list.addView(row, LinearLayout.LayoutParams(-1, dp(62)).also { it.bottomMargin = dp(6) })
+            list.addView(row, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_list_row_height)).also { it.bottomMargin = d(R.dimen.bridgefs_section_spacing) })
         }
 
         box.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -149,9 +152,9 @@ class MainActivity : Activity() {
                 else showDirectoryPicker()
             }
         }
-        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
-        accessRow.addView(addDir, LinearLayout.LayoutParams(dp(120), dp(44)).also { it.marginStart = dp(6) })
-        box.addView(accessRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
+        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
+        accessRow.addView(addDir, LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width), d(R.dimen.bridgefs_button_height)).also { it.marginStart = d(R.dimen.bridgefs_section_spacing) })
+        box.addView(accessRow, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_button_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
 
         val overlayRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val overlayStatus = TextView(this).apply {
@@ -176,10 +179,10 @@ class MainActivity : Activity() {
             setPadding(0, 0, 0, 0)
             setOnClickListener { startOverlayManually() }
         }
-        overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
-        overlayRow.addView(autoSwitch, LinearLayout.LayoutParams(0, dp(44), 1f))
+        overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
+        overlayRow.addView(autoSwitch, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
         overlayRow.addView(open, LinearLayout.LayoutParams(0, dp(44), 1f))
-        box.addView(overlayRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
+        box.addView(overlayRow, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_button_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
 
         val logRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         logRow.addView(TextView(this).apply {
@@ -192,15 +195,15 @@ class MainActivity : Activity() {
             isChecked = prefs.getBoolean("run_log_enabled", true)
             setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("run_log_enabled", checked).apply() }
         }
-        logRow.addView(logSwitch, LinearLayout.LayoutParams(dp(64), dp(44)))
-        box.addView(logRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
+        logRow.addView(logSwitch, LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width), d(R.dimen.bridgefs_button_height)))
+        box.addView(logRow, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_button_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
 
         box.addView(TextView(this).apply {
             text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
             textSize = 12f
             setTextColor(Color.GRAY)
             setPadding(0, dp(8), 0, dp(8))
-        }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = dp(8) })
+        }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
         setContentView(box)
     }
 
@@ -225,23 +228,92 @@ class MainActivity : Activity() {
 
     private inner class DirectoryDialog {
         private val dialog = AlertDialog.Builder(this@MainActivity).create()
-        private val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(12), dp(12), dp(12)) }
-        private val pathView = TextView(this@MainActivity).apply { textSize = 13f }
-        fun show() { dialog.setView(container); renderPicker(); dialog.show() }
+        private val container = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding), d(R.dimen.bridgefs_panel_padding))
+            background = rounded(R.color.bridgefs_panel_background, R.dimen.bridgefs_panel_corner_radius)
+        }
+        private val pathView = TextView(this@MainActivity).apply {
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+            setTextColor(color(R.color.bridgefs_text_primary))
+            maxLines = 2
+        }
+
+        fun show() {
+            dialog.setView(container)
+            renderPicker()
+            dialog.show()
+            dialog.window?.setLayout(dynamicPanelWidthPx(), WindowManager.LayoutParams.WRAP_CONTENT)
+        }
+
         private fun renderPicker() {
             pathView.text = "当前目录：\n" + pickerPath.absolutePath
-            container.removeAllViews();container.addView(pathView)
+            container.removeAllViews()
+            container.addView(pathView, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_list_row_height)))
             val scroll = ScrollView(this@MainActivity)
             val list = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-            pickerPath.listFiles()?.filter { it.isDirectory }.orEmpty().sortedBy { it.name.lowercase(Locale.getDefault()) }.forEach { dir ->
-                list.addView(Button(this@MainActivity).apply { text = "📂 " + dir.name; setOnClickListener { pickerPath = dir; renderPicker() } })
+            val dirs = pickerPath.listFiles()?.filter { it.isDirectory }.orEmpty()
+                .sortedBy { it.name.lowercase(Locale.getDefault()) }
+            dirs.forEach { dir ->
+                list.addView(TextView(this@MainActivity).apply {
+                    text = "📂 " + dir.name
+                    textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(8), 0, dp(8), 0)
+                    setTextColor(color(R.color.bridgefs_text_primary))
+                    background = rounded(R.color.bridgefs_button_background, R.dimen.bridgefs_card_corner_radius)
+                    setOnClickListener { pickerPath = dir; renderPicker() }
+                }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_list_row_height)).also {
+                    it.bottomMargin = d(R.dimen.bridgefs_section_spacing)
+                })
             }
-            scroll.addView(list);container.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            scroll.addView(list)
+            val availableHeight = (resources.displayMetrics.heightPixels * .36f).toInt()
+            val contentHeight = dirs.size * (d(R.dimen.bridgefs_list_row_height) + d(R.dimen.bridgefs_section_spacing))
+            val viewport = minOf(availableHeight, maxOf(d(R.dimen.bridgefs_list_row_height), contentHeight))
+            container.addView(scroll, LinearLayout.LayoutParams(-1, viewport).also {
+                it.topMargin = d(R.dimen.bridgefs_section_spacing)
+            })
+
             val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-            actions.addView(Button(this@MainActivity).apply { text = "返回"; setOnClickListener { pickerPath.parentFile?.takeIf { it.absolutePath.startsWith("/storage/emulated/0") && it.absolutePath != "/storage/emulated/0" }?.let { pickerPath = it; renderPicker() } } }, LinearLayout.LayoutParams(0, dp(48), 1f))
-            actions.addView(Button(this@MainActivity).apply { text = "选择此目录"; setOnClickListener { val p = pickerPath.canonicalPath;val rs=roots();if(!rs.contains(p))rs.add(p);saveRoots(rs);activate(p);dialog.dismiss() } }, LinearLayout.LayoutParams(0, dp(48), 1f))
-            container.addView(actions)
+            actions.addView(actionButton("返回") {
+                pickerPath.parentFile?.takeIf {
+                    it.absolutePath.startsWith("/storage/emulated/0") && it.absolutePath != "/storage/emulated/0"
+                }?.let { pickerPath = it; renderPicker() }
+            }, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
+            actions.addView(actionButton("选择此目录") {
+                val p = pickerPath.canonicalPath
+                val rs = roots()
+                if (!rs.contains(p)) rs.add(p)
+                saveRoots(rs); activate(p); dialog.dismiss()
+            }, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f).also {
+                it.marginStart = d(R.dimen.bridgefs_section_spacing)
+            })
+            container.addView(actions, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_button_height)).also {
+                it.topMargin = d(R.dimen.bridgefs_section_spacing)
+            })
         }
+
+        private fun actionButton(label: String, click: () -> Unit) = Button(this@MainActivity).apply {
+            text = label
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+            minWidth = 0; minimumWidth = 0; setPadding(0, 0, 0, 0)
+            setTextColor(color(R.color.bridgefs_text_primary))
+            background = rounded(R.color.bridgefs_button_background, R.dimen.bridgefs_button_corner_radius)
+            setOnClickListener { click() }
+        }
+    }
+
+    private fun dynamicPanelWidthPx(): Int {
+        val targetDp = (resources.configuration.screenWidthDp * .65f).toInt().coerceIn(220, 300)
+        return dp(targetDp).coerceAtMost((resources.displayMetrics.widthPixels - dp(16)).coerceAtLeast(dp(1)))
+    }
+
+    private fun d(id: Int) = resources.getDimensionPixelSize(id)
+    private fun color(id: Int) = ContextCompat.getColor(this, id)
+    private fun rounded(fill: Int, radius: Int) = GradientDrawable().apply {
+        setColor(color(fill))
+        cornerRadius = resources.getDimension(radius)
     }
     private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 }
