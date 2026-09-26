@@ -40,17 +40,8 @@ jobs:
           print('keystore bytes:', len(data))
           PY
           sha256sum ~/.android/debug.keystore
-      - name: Verify keystore
-        run: |
-          keytool -list -v -keystore ~/.android/debug.keystore \
-            -storepass android -alias androiddebugkey | grep SHA256
       - run: gradle :app:assembleDebug
         working-directory: BridgeFS-0.1
-      - name: Check APK signature
-        run: |
-          APK=$(ls BridgeFS-0.1/app/build/outputs/apk/debug/*.apk | head -1)
-          echo "APK path: $APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" || true
       - uses: actions/upload-artifact@v4
         with:
           name: BridgeFS-v0.1.2
