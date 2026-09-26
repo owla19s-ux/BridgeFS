@@ -309,9 +309,11 @@ inner class Holder(val label:TextView):RecyclerView.ViewHolder(label)
 override fun getItemCount()=rows.size
 override fun onCreateViewHolder(parent:android.view.ViewGroup,viewType:Int):Holder{
 val label=TextView(this@FileBridgeService).apply{
-textSize=13f;gravity=Gravity.CENTER_VERTICAL
+textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.CENTER_VERTICAL
+layoutParams=RecyclerView.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height))
 setPadding(dp(8),0,dp(8),0)
 setTextColor(color(R.color.bridgefs_text_primary))
+background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_card_corner_radius,null)
 }
 return Holder(label)
 }
