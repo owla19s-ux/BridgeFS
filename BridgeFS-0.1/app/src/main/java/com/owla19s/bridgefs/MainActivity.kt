@@ -166,15 +166,15 @@ class MainActivity : Activity() {
             textSize = 24f
             setTextColor(resources.getColor(R.color.bridgefs_text_primary))
             setTypeface(null, 1)
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }, LinearLayout.LayoutParams(-2, dp(48)))
         titleRow.addView(TextView(this).apply {
             text = "v0.1.2"
             setSingleLine(true)
             maxLines = 1
             textSize = 12f
             setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.CENTER_VERTICAL or Gravity.END
-        }, LinearLayout.LayoutParams(dp(56), dp(48)))
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(-2, dp(48)).also { it.marginStart = dp(6) })
         box.addView(titleRow)
 
         box.addView(TextView(this).apply {
@@ -342,7 +342,6 @@ private inner class DirectoryAdapter(
             val row: LinearLayout,
             val icon: ImageView,
             val name: TextView,
-            val badge: TextView,
             val check: CheckBox,
             val arrow: TextView
         ) : RecyclerView.ViewHolder(row)
@@ -360,9 +359,6 @@ private inner class DirectoryAdapter(
                 setSingleLine(true)
                 ellipsize = android.text.TextUtils.TruncateAt.END
             }
-            val badge = TextView(this@MainActivity).apply {
-                visibility = View.GONE
-            }
             val check = CheckBox(this@MainActivity).apply {
                 isClickable = false
                 isFocusable = false
@@ -378,7 +374,7 @@ private inner class DirectoryAdapter(
             row.addView(name, LinearLayout.LayoutParams(0, -1, 1f))
             row.addView(check, LinearLayout.LayoutParams(dimen(R.dimen.directory_check_width), dimen(R.dimen.directory_row_height)))
             if (onNavigate != null) row.addView(arrow, LinearLayout.LayoutParams(dimen(R.dimen.directory_arrow_width), dimen(R.dimen.directory_row_height)))
-            return Holder(row, icon, name, badge, check, arrow)
+            return Holder(row, icon, name, check, arrow)
         }
 
         override fun getItemCount(): Int = paths.size.coerceAtLeast(1)
@@ -387,7 +383,6 @@ private inner class DirectoryAdapter(
             if (paths.isEmpty()) {
                 holder.name.text = "暂无可用目录"
                 holder.name.setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-                holder.badge.text = ""
                 holder.check.visibility = View.GONE
                 holder.icon.visibility = View.GONE
                 holder.arrow.visibility = View.GONE
@@ -398,7 +393,6 @@ private inner class DirectoryAdapter(
             val added = isRootAdded(path)
             holder.name.text = File(path).name.ifBlank { path }
             holder.name.setTextColor(resources.getColor(if (added) R.color.bridgefs_text_secondary else R.color.bridgefs_text_primary))
-            holder.badge.text = if (added) "已添加" else ""
             holder.check.visibility = View.VISIBLE
             holder.check.isChecked = added
             holder.icon.visibility = View.VISIBLE
