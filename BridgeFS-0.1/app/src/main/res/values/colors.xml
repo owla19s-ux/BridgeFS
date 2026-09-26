@@ -9,4 +9,6 @@
     <color name="bridgefs_result_background">#FFF8FAFC</color>
     <color name="bridgefs_selected_background">#FFE0E7FF</color>
     <color name="bridgefs_input_border">#FFE2E8F0</color>
+    <color name="bridgefs_ball_background">#CC1E293B</color>
+    <color name="bridgefs_ball_border">#FF6366F1</color>
 </resources>
