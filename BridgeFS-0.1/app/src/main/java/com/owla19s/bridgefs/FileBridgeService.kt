@@ -124,7 +124,7 @@ addView(inputSide,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R
 box.addView(inputRow,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_input_row_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 
 val receipt=TextView(this).apply{
-text="执行结果会显示在这里";textSize=11f;typeface=android.graphics.Typeface.MONOSPACE
+text="执行结果会显示在这里";textSize=d(R.dimen.bridgefs_aux_text_size)/resources.displayMetrics.scaledDensity;typeface=android.graphics.Typeface.MONOSPACE
 setPadding(d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding),d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding));setTextColor(color(R.color.bridgefs_text_secondary))
 background=tokenBg(R.color.bridgefs_result_background,R.dimen.bridgefs_card_corner_radius,null)
 }
@@ -190,7 +190,7 @@ private fun showCommandInputDialog(target:EditText){
   textSize=d(R.dimen.bridgefs_dialog_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.TOP;minLines=6;maxLines=12
   inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
   background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_input_corner_radius,R.color.bridgefs_input_border)
-  setPadding(dp(10),dp(8),dp(10),dp(8))
+  setPadding(d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding),d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding))
  }
  box.addView(edit,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_dialog_editor_height)))
  val actions=LinearLayout(this).apply{gravity=Gravity.END}
@@ -353,7 +353,7 @@ val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
 rs.forEachIndexed{index,path->
 val row=TextView(this).apply{
 text="📂 "+path;textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity
-setPadding(dp(10),0,dp(10),0);gravity=Gravity.CENTER_VERTICAL
+setPadding(d(R.dimen.bridgefs_content_inset),0,d(R.dimen.bridgefs_content_inset),0);gravity=Gravity.CENTER_VERTICAL
 setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE
 setTextColor(color(R.color.bridgefs_text_primary))
 background=tokenBg(R.color.bridgefs_button_background,R.dimen.bridgefs_card_corner_radius,null)
@@ -365,7 +365,7 @@ clearPanel();browserCurrent=root;renderBrowser()
 }
 list.addView(row,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)).also{if(index>0)it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 }
-if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
+if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
 val screenLimit=(resources.displayMetrics.heightPixels*.55f).toInt()-d(R.dimen.bridgefs_home_root_list_chrome_height)
 val rowsHeight=if(rs.isEmpty())d(R.dimen.bridgefs_list_row_height) else rs.size*d(R.dimen.bridgefs_list_row_height)+(rs.size-1)*d(R.dimen.bridgefs_section_spacing)
 val viewport=minOf(rowsHeight,screenLimit.coerceAtLeast(d(R.dimen.bridgefs_list_row_height)))
@@ -398,7 +398,6 @@ val desiredDp=(resources.configuration.screenWidthDp*.65f).toInt().coerceIn(220,
 return dp(desiredDp).coerceAtMost((resources.displayMetrics.widthPixels-dp(16)).coerceAtLeast(dp(1)))
 }
 private fun panelX(width:Int)=(resources.displayMetrics.widthPixels-width-dp(72)).coerceAtLeast(0)
-private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))}
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
 override fun onDestroy(){
