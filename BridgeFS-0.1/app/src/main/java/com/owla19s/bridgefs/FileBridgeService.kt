@@ -78,7 +78,7 @@ hint="粘贴 AI 指令到这里..."
 textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity
 gravity=Gravity.TOP
 inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-setPadding(dp(10),dp(8),dp(38),dp(8))
+setPadding(d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding),d(R.dimen.bridgefs_input_symbol_size)+d(R.dimen.bridgefs_input_symbol_inset),d(R.dimen.bridgefs_content_vertical_padding))
 background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_input_corner_radius,R.color.bridgefs_input_border)
 isFocusable=false;isFocusableInTouchMode=false;isCursorVisible=false
 setOnClickListener{showCommandInputDialog(this)}
@@ -91,7 +91,7 @@ addView(TextView(this@FileBridgeService).apply{
 text="!";textSize=14f;gravity=Gravity.CENTER;setTextColor(color(R.color.bridgefs_accent))
 background=tokenBg(R.color.bridgefs_button_background,R.dimen.bridgefs_button_corner_radius,null)
 contentDescription="编辑指令";setOnClickListener{showCommandInputDialog(input)}
-},FrameLayout.LayoutParams(dp(28),dp(28),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=dp(6);it.rightMargin=dp(6)})
+},FrameLayout.LayoutParams(d(R.dimen.bridgefs_input_symbol_size),d(R.dimen.bridgefs_input_symbol_size),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=d(R.dimen.bridgefs_input_symbol_inset);it.rightMargin=d(R.dimen.bridgefs_input_symbol_inset)})
 }
 val paste=smallButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
 var runButton:Button?=null
@@ -106,7 +106,7 @@ val results=runCatching{if(cs.isEmpty())listOf("未发现可执行指令")else c
 log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
 handler.post{
 runButton?.isEnabled=true
-if(panel===box)findReceipt(box)?.apply{text=results.joinToString("\n\n");setTextColor(Color.DKGRAY)}
+if(panel===box)findReceipt(box)?.apply{text=results.joinToString("\n\n");setTextColor(color(R.color.bridgefs_text_primary))}
 }
 }
 }
@@ -118,14 +118,14 @@ addView(run,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen
 }
 val inputRow=LinearLayout(this).apply{
 gravity=Gravity.BOTTOM
-addView(inputFrame,LinearLayout.LayoutParams(0,dp(86),1f))
-addView(inputSide,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),dp(86)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
+addView(inputFrame,LinearLayout.LayoutParams(0,d(R.dimen.bridgefs_input_row_height),1f))
+addView(inputSide,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_input_row_height)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
 }
-box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(86)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
+box.addView(inputRow,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_input_row_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 
 val receipt=TextView(this).apply{
 text="执行结果会显示在这里";textSize=11f;typeface=android.graphics.Typeface.MONOSPACE
-setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(color(R.color.bridgefs_text_secondary))
+setPadding(d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding),d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding));setTextColor(color(R.color.bridgefs_text_secondary))
 background=tokenBg(R.color.bridgefs_result_background,R.dimen.bridgefs_card_corner_radius,null)
 }
 val resultScroll=ScrollView(this).apply{isFillViewport=true;addView(receipt,ScrollView.LayoutParams(-1,-2))}
@@ -133,16 +133,16 @@ receiptView=receipt
 val copyReceipt=smallButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
 val receiptRow=LinearLayout(this).apply{
 gravity=Gravity.TOP
-addView(resultScroll,LinearLayout.LayoutParams(0,dp(100),1f))
+addView(resultScroll,LinearLayout.LayoutParams(0,d(R.dimen.bridgefs_result_max_height),1f))
 addView(copyReceipt,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
 }
-box.addView(receiptRow,LinearLayout.LayoutParams(-1,dp(100)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
+box.addView(receiptRow,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_result_max_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 
 val footer=TextView(this).apply{
 text="BridgeFS";textSize=d(R.dimen.bridgefs_aux_text_size)/resources.displayMetrics.scaledDensity
 setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.BOTTOM or Gravity.LEFT
 }
-box.addView(footer,LinearLayout.LayoutParams(-1,dp(56)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
+box.addView(footer,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_panel_footer_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 
 panel=box
 val width=panelWidthPx()
@@ -182,7 +182,7 @@ private fun showCommandInputDialog(target:EditText){
  dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
  val box=LinearLayout(this).apply{
   orientation=LinearLayout.VERTICAL
-  setPadding(dp(16),dp(16),dp(16),dp(16))
+  setPadding(d(R.dimen.bridgefs_dialog_padding),d(R.dimen.bridgefs_dialog_padding),d(R.dimen.bridgefs_dialog_padding),d(R.dimen.bridgefs_dialog_padding))
   background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_panel_corner_radius,R.color.bridgefs_panel_border)
  }
  val edit=EditText(this).apply{
@@ -192,13 +192,13 @@ private fun showCommandInputDialog(target:EditText){
   background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_input_corner_radius,R.color.bridgefs_input_border)
   setPadding(dp(10),dp(8),dp(10),dp(8))
  }
- box.addView(edit,LinearLayout.LayoutParams(-1,dp(180)))
+ box.addView(edit,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_dialog_editor_height)))
  val actions=LinearLayout(this).apply{gravity=Gravity.END}
  val cancel=smallButton("取消"){dialog.dismiss()}
  val ok=smallButton("确定"){target.setText(edit.text.toString());target.setSelection(target.text.length);dialog.dismiss()}
  actions.addView(cancel,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)))
  actions.addView(ok,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
- box.addView(actions,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
+ box.addView(actions,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_dialog_actions_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
  dialog.setContentView(box)
  dialog.show()
  dialog.window?.let{
@@ -312,7 +312,7 @@ override fun onCreateViewHolder(parent:android.view.ViewGroup,viewType:Int):Hold
 val label=TextView(this@FileBridgeService).apply{
 textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.CENTER_VERTICAL
 layoutParams=RecyclerView.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height))
-setPadding(dp(8),0,dp(8),0)
+setPadding(d(R.dimen.bridgefs_small_inset),0,d(R.dimen.bridgefs_small_inset),0)
 setTextColor(color(R.color.bridgefs_text_primary))
 background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_card_corner_radius,null)
 }
