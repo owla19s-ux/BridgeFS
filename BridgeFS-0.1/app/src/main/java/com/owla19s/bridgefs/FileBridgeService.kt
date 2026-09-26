@@ -14,7 +14,7 @@ import java.util.*
 
 class FileBridgeService:Service(){
 private lateinit var wm:WindowManager
-private lateinit var ball:TextView
+private lateinit var ball:PillOrbView
 private var panel:LinearLayout?=null
 private var commandInput:EditText?=null
 private lateinit var root:File
@@ -36,11 +36,8 @@ private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutP
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
 
 private fun showBall(){
-ball=TextView(this).apply{
-text="📁";textSize=22f;gravity=17;alpha=.7f;background=bg("#CC1E293B",28,"#6366F1")
-setOnClickListener{if(alpha<1f){alpha=1f;translationX=0f}else showPanel()}
-}
-ballLp=lp(dp(56),dp(56));ballLp.gravity=Gravity.TOP or Gravity.LEFT
+ball=PillOrbView(this).apply{alpha=.7f;setOnClickListener{showPanel()}}
+ballLp=lp(dp(40),dp(56));ballLp.gravity=Gravity.TOP or Gravity.LEFT
 ballLp.x=resources.displayMetrics.widthPixels-dp(56);ballLp.y=(resources.displayMetrics.heightPixels*.65).toInt()
 drag(ball,ballLp);wm.addView(ball,ballLp)
 }
@@ -49,7 +46,7 @@ private fun showPanel(){
 try{
 clearPanel();ball.visibility=View.GONE;log("UI","showPanel")
 val box=LinearLayout(this).apply{
-orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,"#2E7BE0")
+orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,null)
 }
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val title=TextView(this).apply{text="📁 BridgeFS";textSize=15f;setTypeface(null,1)}
@@ -59,7 +56,7 @@ top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f))
 top.addView(help,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
 top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
 box.addView(top)
-installPanelDrag(top)
+// Panel movement is handled by the footer robot and BridgeFS label.
 
 val address=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val dir=TextView(this).apply{text="📂 "+root.name;if(root.name.isBlank())text="📂 "+root.absolutePath;textSize=13f;setTextColor(Color.rgb(99,102,241));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE}
@@ -71,11 +68,15 @@ box.addView(address,LinearLayout.LayoutParams(-1,dp(40)).also{it.topMargin=dp(8)
 val input=EditText(this).apply{
 hint="粘贴 AI 指令到这里...";textSize=13f;gravity=Gravity.TOP
 inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-setPadding(dp(10),dp(8),dp(10),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
+setPadding(dp(10),dp(8),dp(42),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
 setOnClickListener{showCommandInputDialog(this)}
 }
 commandInput=input
 clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.setSelection(commandInput?.text?.length?:0)}}
+val inputFrame=FrameLayout(this).apply{
+addView(input,FrameLayout.LayoutParams(-1,-1))
+addView(TextView(this@FileBridgeService).apply{text="!";textSize=14f;gravity=Gravity.CENTER;setTextColor(Color.rgb(46,123,224));contentDescription="指令帮助";setOnClickListener{copyInstructions()}},FrameLayout.LayoutParams(dp(28),dp(28),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=dp(4);it.rightMargin=dp(4)})
+}
 val paste=smallButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
 val run=smallButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
@@ -85,7 +86,7 @@ findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color
 log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
 }
 val inputSide=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;addView(paste,LinearLayout.LayoutParams(dp(56),dp(40)));addView(run,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.topMargin=dp(6)})}
-val inputRow=LinearLayout(this).apply{gravity=Gravity.BOTTOM;addView(input,LinearLayout.LayoutParams(0,dp(86),1f));addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(86)).also{it.marginStart=dp(8)})}
+val inputRow=LinearLayout(this).apply{gravity=Gravity.BOTTOM;addView(inputFrame,LinearLayout.LayoutParams(0,dp(86),1f));addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(86)).also{it.marginStart=dp(8)})}
 box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(86)).also{it.topMargin=dp(8)})
 
 val receipt=TextView(this).apply{text="执行结果会显示在这里";textSize=12f;typeface=android.graphics.Typeface.MONOSPACE;setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null)}
@@ -114,10 +115,9 @@ box.requestLayout()
 }
 box.addView(logToggle,LinearLayout.LayoutParams(-1,dp(40)).also{it.topMargin=dp(8)})
 box.addView(logArea,LinearLayout.LayoutParams(-1,dp(40)).also{it.topMargin=dp(8)})
-installPanelDrag(logArea)
-logArea.setOnTouchListener{_,e->if(logOpen)false else panelDragHandler(box,e)}
+// Log area does not move the panel.
 
-panel=box
+addPanelFooter(box);addPanelFooter(box);panel=box
 val sw=resources.displayMetrics.widthPixels
 panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
 panelLpRef.gravity=Gravity.TOP or Gravity.LEFT
@@ -180,18 +180,28 @@ log("UI","clearPanel")
 }
 private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);ball.visibility=View.VISIBLE;ball.alpha=.7f;ball.translationX=0f}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
 
-private fun installPanelDrag(v:View){v.setOnTouchListener{_,e->panelDragHandler(v,e)}}
+private fun addPanelFooter(box:LinearLayout){
+val handle=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
+val orb=PillOrbView(this)
+handle.addView(orb,LinearLayout.LayoutParams(dp(40),dp(56)))
+val brand=TextView(this).apply{text="BridgeFS";textSize=11f;setTextColor(Color.DKGRAY);gravity=Gravity.CENTER_VERTICAL;setPadding(dp(6),0,dp(6),0)}
+handle.addView(brand,LinearLayout.LayoutParams(-2,dp(56)))
+val touch=View.OnTouchListener{_,e->panelDragHandler(box,e)}
+handle.setOnTouchListener(touch);orb.setOnTouchListener(touch);brand.setOnTouchListener(touch)
+box.addView(handle,LinearLayout.LayoutParams(-1,dp(56)))
+}
+
+
 private fun panelDragHandler(@Suppress("UNUSED_PARAMETER") v:View,e:MotionEvent):Boolean{
 if(panel==null)return false
-if(panelDragTarget==null)panelDragTarget=panel
 return when(e.actionMasked){
-MotionEvent.ACTION_DOWN->{dragDownRawX=e.rawX;dragDownRawY=e.rawY;dragStartX=panelLpRef.x;dragStartY=panelLpRef.y;true}
-MotionEvent.ACTION_MOVE->{panelLpRef.x=(dragStartX+(e.rawX-dragDownRawX)).toInt();panelLpRef.y=(dragStartY+(e.rawY-dragDownRawY)).toInt();val sw=resources.displayMetrics.widthPixels;val sh=resources.displayMetrics.heightPixels;panelLpRef.x=panelLpRef.x.coerceIn(0,(sw-(panel?.width?:0)).coerceAtLeast(0));panelLpRef.y=panelLpRef.y.coerceIn(0,(sh-(panel?.height?:0)).coerceAtLeast(0));runCatching{wm.updateViewLayout(panel,panelLpRef)};true}
-MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sw=resources.displayMetrics.widthPixels;val maxX=(sw-(panel?.width?:0)).coerceAtLeast(0);when{panelLpRef.x<=dp(5)->panelLpRef.x=0;panelLpRef.x>=maxX-dp(5)->panelLpRef.x=maxX};runCatching{wm.updateViewLayout(panel,panelLpRef)};true}
+MotionEvent.ACTION_DOWN->{dragDownRawX=e.rawX;dragDownRawY=e.rawY;dragStartX=panelLpRef.x;dragStartY=panelLpRef.y;panelDragMoved=false;true}
+MotionEvent.ACTION_MOVE->{val dx=e.rawX-dragDownRawX;val dy=e.rawY-dragDownRawY;if(kotlin.math.abs(dx)>dp(4)||kotlin.math.abs(dy)>dp(4))panelDragMoved=true;if(panelDragMoved){panelLpRef.x=(dragStartX+dx).toInt();panelLpRef.y=(dragStartY+dy).toInt();val sw=resources.displayMetrics.widthPixels;val sh=resources.displayMetrics.heightPixels;panelLpRef.x=panelLpRef.x.coerceIn(0,(sw-(panel?.width?:0)).coerceAtLeast(0));panelLpRef.y=panelLpRef.y.coerceIn(0,(sh-(panel?.height?:0)).coerceAtLeast(0));runCatching{wm.updateViewLayout(panel,panelLpRef)}};true}
+MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(!panelDragMoved){closePanel();return true};val sw=resources.displayMetrics.widthPixels;val maxX=(sw-(panel?.width?:0)).coerceAtLeast(0);when{panelLpRef.x<=dp(5)->panelLpRef.x=0;panelLpRef.x>=maxX-dp(5)->panelLpRef.x=maxX};runCatching{panel?.let{wm.updateViewLayout(it,panelLpRef)}};true}
 else->false
 }
 }
-private var panelDragTarget:LinearLayout?=null
+private var panelDragMoved=false
 private var dragDownRawX=0f
 private var dragDownRawY=0f
 private var dragStartX=0
@@ -223,7 +233,7 @@ private var browserCurrent:File?=null
 private fun renderBrowser(){
 clearPanel();log("UI","renderBrowser")
 val current=browserCurrent?:root
-val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(8),dp(12),dp(12));background=bg("#FFFFFF",16,"#2E7BE0")}
+val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(8),dp(12),dp(12));background=bg("#FFFFFF",16,null)}
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val back=smallButton("←"){if(current.absolutePath==root.absolutePath)showPanel()else{browserCurrent=current.parentFile?:root;renderBrowser()}}
 val rootBtn=TextView(this).apply{text=root.name.ifBlank{root.absolutePath};textSize=13f;gravity=17;setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setTextColor(Color.DKGRAY);background=bg("#F1F5F9",8,null);setOnClickListener{showRootList()}}
@@ -236,13 +246,13 @@ val first=children.take(50)
 first.forEach{f->val row=TextView(this).apply{text=if(f.isDirectory)"📁 "+f.name else "📄 "+f.name;textSize=14f;setPadding(dp(8),dp(8),dp(8),dp(8));setOnClickListener{if(f.isDirectory){browserCurrent=f;renderBrowser()}else{copyText("BridgeFS路径",f.relativeTo(root).path);toast("已复制相对路径")}}};list.addView(row,LinearLayout.LayoutParams(-1,dp(40)))}
 if(children.size>50)list.addView(TextView(this).apply{text="…等 "+(children.size-50)+" 项";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(8),dp(8),dp(8),dp(8))})
 box.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,dp(360)))
-panel=box
+addPanelFooter(box);panel=box
 val sw=resources.displayMetrics.widthPixels
 panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;panelLpRef.x=(sw-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y
 wm.addView(box,panelLpRef)
 }
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return "📁 "+current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"📁" else "📄")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
-private fun showRootList(){clearPanel();log("UI","showRootList");val rs=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList();val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,"#2E7BE0")};val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1)};val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)));box.addView(top);installPanelDrag(top);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};rs.forEachIndexed{index,path->val row=TextView(this).apply{text="📂 "+path;textSize=13f;setPadding(dp(10),dp(10),dp(10),dp(10));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setOnClickListener{root=File(path);getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply();clearPanel();browserCurrent=root;renderBrowser()}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=if(index==0)dp(4) else dp(2)})};if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(10),dp(12),dp(10),dp(12))});box.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,0,1f));panel=box;panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;panelLpRef.x=(resources.displayMetrics.widthPixels-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y;wm.addView(box,panelLpRef)}
+private fun showRootList(){clearPanel();log("UI","showRootList");val rs=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList();val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,null)};val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1)};val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}};top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)));box.addView(top);/* panel drag is restricted to the footer handle */;val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};rs.forEachIndexed{index,path->val row=TextView(this).apply{text="📂 "+path;textSize=13f;setPadding(dp(10),dp(10),dp(10),dp(10));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE;setOnClickListener{root=File(path);getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply();clearPanel();browserCurrent=root;renderBrowser()}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=if(index==0)dp(4) else dp(2)})};if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(10),dp(12),dp(10),dp(12))});box.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,0,1f));addPanelFooter(box);panel=box;panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT);panelLpRef.gravity=Gravity.TOP or Gravity.LEFT;panelLpRef.x=(resources.displayMetrics.widthPixels-dp(300)-dp(72)).coerceAtLeast(0);panelLpRef.y=ballLp.y;wm.addView(box,panelLpRef)}
 private fun readRunLog():String=runCatching{val f=runLogFile();if(f.isFile)f.readLines().takeLast(120).joinToString("\n")else""}.getOrDefault("")
 private fun runLogFile():File{val dir=File("/sdcard/BridgeFS/logs");return if(dir.exists()||dir.mkdirs())File(dir,"run.log")else File(getExternalFilesDir(null),"logs").apply{mkdirs()}.resolve("run.log")}
 private fun log(module:String,message:String){if(!getSharedPreferences("bridgefs",0).getBoolean("run_log_enabled",true))return;val line=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date())+" ["+module+"] "+message.replace("\n","\\n")+"\n";runCatching{val f=runLogFile();val old=if(f.isFile)f.readLines().takeLast(499)else emptyList();f.parentFile?.mkdirs();f.writeText((old+line).joinToString(""))}.onFailure{android.util.Log.e("BridgeFS","run log failed",it)}}
