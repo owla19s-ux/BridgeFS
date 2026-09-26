@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bridgefs_panel_background">#FFFFFFFF</color>
+    <color name="bridgefs_panel_border">#FF2E7BE0</color>
+    <color name="bridgefs_text_primary">#FF1F2937</color>
+    <color name="bridgefs_text_secondary">#FF6B7280</color>
+    <color name="bridgefs_accent">#FF6366F1</color>
+    <color name="bridgefs_button_background">#FFF1F5F9</color>
+    <color name="bridgefs_result_background">#FFF8FAFC</color>
+    <color name="bridgefs_selected_background">#FFE0E7FF</color>
+    <color name="bridgefs_input_border">#FFE2E8F0</color>
+</resources>
