@@ -1,4 +1,5 @@
 package com.owla19s.bridgefs
+import android.animation.ValueAnimator
 import android.app.*
 import android.content.*
 import android.content.res.ColorStateList
@@ -21,6 +22,13 @@ private lateinit var ball:PillOrbView
 private lateinit var bottomBarBrand:TextView
 private var panel:LinearLayout?=null
 private var isRenderingBrowser=false
+private var isRenderingMainPanel=false
+private var isUpdatingBottomBarLayout=false
+private var isUpdatingPanelLayout=false
+private var isClosingPanel=false
+private var bottomBarEdgeHidden=0
+private var bottomBarRevealTargetX:Int?=null
+private var bottomBarSnapAnimator:ValueAnimator?=null
 private var commandInput:EditText?=null
 private lateinit var root:File
 private lateinit var bottomBarLp:WindowManager.LayoutParams
@@ -42,6 +50,8 @@ private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.La
 private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
 
 private fun showBall(){
+val previousHiddenEdge=bottomBarEdgeHidden
+bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null;bottomBarRevealTargetX=null
 if(!::bottom_bar.isInitialized){
 ball=PillOrbView(this)
 bottom_bar=LinearLayout(this).apply{
@@ -49,9 +59,9 @@ orientation=LinearLayout.HORIZONTAL
 gravity=Gravity.CENTER_VERTICAL or Gravity.RIGHT
 isClickable=true
 setPadding(dp(10),0,dp(10),0)
-bottomBarBrand=TextView(this@FileBridgeService).apply{text="BridgeFS";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE}
+bottomBarBrand=TextView(this@FileBridgeService).apply{text="BridgeFS";textSize=11f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE}
 addView(bottomBarBrand,LinearLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)))
-addView(ball,LinearLayout.LayoutParams(dp(32),resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)).also{it.marginStart=dp(8)})
+addView(ball,LinearLayout.LayoutParams(dp(32),resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)))
 setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 }
 bottomBarLp=lp(WindowManager.LayoutParams.WRAP_CONTENT,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
@@ -65,13 +75,34 @@ if(oldParent is ViewGroup)oldParent.removeView(bottom_bar)
 else if(oldParent!=null||bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
 bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f
 bottomBarBrand.visibility=View.GONE
+(ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=0;ball.layoutParams=it}
+bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height),View.MeasureSpec.EXACTLY))
+val maxFloatingX=(resources.displayMetrics.widthPixels-bottom_bar.measuredWidth).coerceAtLeast(0)
+bottomBarLp.x=when{previousHiddenEdge<0->0;previousHiddenEdge>0->maxFloatingX;else->bottomBarLp.x.coerceIn(0,maxFloatingX)}
+bottom_bar.requestLayout()
 ball.visibility=View.VISIBLE;ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
+bottom_bar.translationX=0f;bottom_bar.translationY=0f
+bottomBarEdgeHidden=0
+bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
 bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 wm.addView(bottom_bar,bottomBarLp)
+ensureRobotState(false)
+}
+
+private fun ensureRobotState(expanded:Boolean){
+if(!::bottom_bar.isInitialized)return
+bottom_bar.visibility=View.VISIBLE
+bottomBarBrand.visibility=if(expanded)View.VISIBLE else View.GONE
+ball.visibility=View.VISIBLE
+if(expanded){bottomBarBrand.bringToFront();ball.bringToFront()}
+bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
 }
 
 private fun showPanel(){
+if(isRenderingMainPanel)return
+isRenderingMainPanel=true
 try{
+bottomBarRevealTargetX?.let{target->bottomBarSnapAnimator?.cancel();bottomBarSnapAnimator=null;bottomBarLp.x=target;bottomBarRevealTargetX=null;updateBottomBarWindow()}
 val wasFloating=bottom_bar.isAttachedToWindow&&bottom_bar.parent !is ViewGroup
 val origin=if(wasFloating)IntArray(2).also{bottom_bar.getLocationOnScreen(it)}else null
 clearPanel()
@@ -157,9 +188,10 @@ addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart
 box.addView(receiptRow,LinearLayout.LayoutParams(-1,-2).also{it.topMargin=dp(8)})
 
 addPanelFooter(box)
+check(bottom_bar.parent===box&&bottomBarBrand.parent===bottom_bar&&ball.parent===bottom_bar){"bottom bar children were not attached"}
 box.setPadding(box.paddingLeft,dp(8),box.paddingRight,dp(8))
 (bottom_bar.layoutParams as? LinearLayout.LayoutParams)?.let{it.topMargin=dp(8);bottom_bar.layoutParams=it}
-bottomBarBrand.visibility=View.VISIBLE
+ensureRobotState(true)
 panel=box
 box.setOnTouchListener{_,event->
 if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false
@@ -173,7 +205,7 @@ val barCenter=bottomBarLp.x+bottom_bar.width/2
 panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
 panelLpRef.y=dp(24)
 wm.addView(box,panelLpRef)
-}catch(e:Exception){log("Error","showPanel："+e.message);runCatching{clearPanel();showBall()};toast("打开面板失败："+e.message)}
+}catch(e:Exception){log("Error","showPanel："+e.message);runCatching{clearPanel();showBall()};toast("打开面板失败："+e.message)}finally{isRenderingMainPanel=false}
 }
 
 private var inputDialog:Dialog?=null
@@ -236,7 +268,7 @@ container.removeAllViews()
 }
 log("UI","clearPanel")
 }
-private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);showBall()}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
+private fun closePanel(){if(isClosingPanel)return;isClosingPanel=true;try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);showBall();ensureRobotState(false)}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}finally{isClosingPanel=false}}
 
 private var orbTransitionOrigin:IntArray?=null
 private fun addPanelFooter(box:LinearLayout){
@@ -255,7 +287,9 @@ else runCatching{wm.removeView(bottom_bar)}
 if(bottom_bar.parent==null&&bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
 bottom_bar.visibility=View.VISIBLE
 bottomBarBrand.visibility=View.VISIBLE
+(ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=dp(8);ball.layoutParams=it}
 ball.visibility=View.VISIBLE
+bottomBarBrand.invalidate();ball.invalidate();bottom_bar.invalidate()
 bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 if(bottom_bar.parent==null)box.addView(bottom_bar,LinearLayout.LayoutParams(-1,height))
 if(bottom_bar.parent!==box)throw IllegalStateException("bottom_bar could not be attached to panel")
@@ -276,12 +310,45 @@ runCatching{showBall()}
 }
 }
 
+private fun updateBottomBarWindow(){
+if(isUpdatingBottomBarLayout||!::bottom_bar.isInitialized||!bottom_bar.isAttachedToWindow)return
+isUpdatingBottomBarLayout=true
+try{wm.updateViewLayout(bottom_bar,bottomBarLp)}catch(e:Exception){log("Error","update bottom bar："+e.message)}finally{isUpdatingBottomBarLayout=false}
+}
+private fun updatePanelWindow(current:LinearLayout){
+if(isUpdatingPanelLayout||panel!==current)return
+isUpdatingPanelLayout=true
+try{wm.updateViewLayout(current,panelLpRef)}catch(e:Exception){log("Error","update panel："+e.message)}finally{isUpdatingPanelLayout=false}
+}
+private fun animateBottomBarToX(targetX:Int){
+if(!::bottom_bar.isInitialized)return
+bottomBarSnapAnimator?.cancel()
+val startX=bottomBarLp.x
+if(startX==targetX){bottomBarLp.x=targetX;updateBottomBarWindow();return}
+bottomBarSnapAnimator=ValueAnimator.ofInt(startX,targetX).apply{
+duration=180L
+addUpdateListener{animator->
+bottomBarLp.x=animator.animatedValue as Int
+updateBottomBarWindow()
+}
+start()
+}
+}
 private fun bottomBarTouchHandler(@Suppress("UNUSED_PARAMETER") view:View,e:MotionEvent):Boolean{
 return when(e.actionMasked){
 MotionEvent.ACTION_DOWN->{
 ball.animate().scaleX(.95f).scaleY(.95f).setDuration(80L).start()
+if(panel==null&&bottomBarEdgeHidden!=0){
+val wasHidden=bottomBarEdgeHidden
+bottomBarSnapAnimator?.cancel()
+bottomBarSnapAnimator=null
+bottomBarEdgeHidden=0
+val fullWidthX=if(wasHidden<0)0 else (resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0)
+bottomBarRevealTargetX=fullWidthX
+animateBottomBarToX(fullWidthX)
+}
 bottomBarDownRawX=e.rawX;bottomBarDownRawY=e.rawY
-bottomBarStartX=if(panel!=null)panelLpRef.x else bottomBarLp.x
+bottomBarStartX=if(panel!=null)panelLpRef.x else (bottomBarRevealTargetX?:bottomBarLp.x)
 bottomBarStartY=if(panel!=null)panelLpRef.y else bottomBarLp.y
 bottomBarDragInPanel=panel!=null;bottomBarMoved=false
 true
@@ -295,12 +362,15 @@ val current=panel
 if(current!=null){
 panelLpRef.x=(bottomBarStartX+dx).toInt().coerceIn(0,(resources.displayMetrics.widthPixels-current.width).coerceAtLeast(0))
 panelLpRef.y=(bottomBarStartY+dy).toInt().coerceIn(0,(resources.displayMetrics.heightPixels-current.height).coerceAtLeast(0))
-runCatching{wm.updateViewLayout(current,panelLpRef)}
+updatePanelWindow(current)
 }
 }else{
+bottomBarSnapAnimator?.cancel()
+bottomBarSnapAnimator=null
+bottomBarRevealTargetX=null
 bottomBarLp.x=(bottomBarStartX+dx).toInt().coerceIn(0,(resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0))
 bottomBarLp.y=(bottomBarStartY+dy).toInt().coerceIn(0,(resources.displayMetrics.heightPixels-bottom_bar.height).coerceAtLeast(0))
-runCatching{wm.updateViewLayout(bottom_bar,bottomBarLp)}
+updateBottomBarWindow()
 }
 }
 true
@@ -313,12 +383,17 @@ val current=panel
 if(current!=null){
 val maxX=(resources.displayMetrics.widthPixels-current.width).coerceAtLeast(0)
 panelLpRef.x=panelLpRef.x.coerceIn(0,maxX)
-runCatching{wm.updateViewLayout(current,panelLpRef)}
+updatePanelWindow(current)
 }
 }else{
-val maxX=(resources.displayMetrics.widthPixels-bottom_bar.width).coerceAtLeast(0)
-if(bottomBarLp.x<=dp(5))bottomBarLp.x=0 else if(bottomBarLp.x>=maxX-dp(5))bottomBarLp.x=maxX
-runCatching{wm.updateViewLayout(bottom_bar,bottomBarLp)}
+val sw=resources.displayMetrics.widthPixels
+val x=bottomBarLp.x.coerceIn(0,(sw-bottom_bar.width).coerceAtLeast(0))
+bottomBarLp.x=x
+when{
+x<sw/4->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
+x>sw*3/4->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
+else->{bottomBarEdgeHidden=0;updateBottomBarWindow()}
+}
 }
 true
 }
@@ -326,6 +401,7 @@ MotionEvent.ACTION_CANCEL->{ball.animate().scaleX(1f).scaleY(1f).setDuration(100
 else->false
 }
 }
+
 private var bottomBarDownRawX=0f
 private var bottomBarDownRawY=0f
 private var bottomBarStartX=0
