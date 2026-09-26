@@ -87,7 +87,7 @@ class MainActivity : Activity() {
         titleRow.addView(TextView(this).apply {
             text = "v0.1.1"
             textSize = d(R.dimen.bridgefs_aux_text_size) / resources.displayMetrics.scaledDensity
-            setTextColor(Color.GRAY)
+            setTextColor(color(R.color.bridgefs_text_secondary))
             gravity = Gravity.CENTER_VERTICAL
         }, LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width), d(R.dimen.bridgefs_list_row_height)))
         box.addView(titleRow)
@@ -211,7 +211,7 @@ class MainActivity : Activity() {
 
         box.addView(TextView(this).apply {
             text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
-            textSize = 12f
+            textSize = d(R.dimen.bridgefs_aux_text_size) / resources.displayMetrics.scaledDensity
             setTextColor(Color.GRAY)
             setPadding(0, d(R.dimen.bridgefs_content_vertical_padding), 0, d(R.dimen.bridgefs_content_vertical_padding))
         }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_home_note_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
@@ -317,7 +317,7 @@ class MainActivity : Activity() {
 
     private fun dynamicPanelWidthPx(): Int {
         val targetDp = (resources.configuration.screenWidthDp * .65f).toInt().coerceIn(220, 300)
-        return dp(targetDp).coerceAtMost((resources.displayMetrics.widthPixels - dp(16)).coerceAtLeast(dp(1)))
+        return dp(targetDp).coerceAtMost((resources.displayMetrics.widthPixels - d(R.dimen.bridgefs_dialog_padding)).coerceAtLeast(dp(1)))
     }
 
     private fun d(id: Int) = resources.getDimensionPixelSize(id)
