@@ -55,7 +55,7 @@ private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutP
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
 private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
 
-private private fun attachPanelToOverlay(box:LinearLayout,x:Int,y:Int){
+private fun attachPanelToOverlay(box:LinearLayout,x:Int,y:Int){
 try{
 panel=box
 panelLpRef=bottomBarLp
@@ -573,7 +573,7 @@ private fun rippleBg(content:GradientDrawable,colorRes:Int)=RippleDrawable(Color
 private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))}
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
-override override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
+override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
 }
 
 class ClipboardReaderActivity:Activity(){
