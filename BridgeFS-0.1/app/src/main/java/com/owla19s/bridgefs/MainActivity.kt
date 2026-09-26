@@ -83,13 +83,13 @@ class MainActivity : Activity() {
             text = "BridgeFS"
             textSize = d(R.dimen.bridgefs_title_text_size) / resources.displayMetrics.scaledDensity
             setTypeface(null, 1)
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_list_row_height), 1f))
         titleRow.addView(TextView(this).apply {
             text = "v0.1.1"
-            textSize = 12f
+            textSize = d(R.dimen.bridgefs_aux_text_size) / resources.displayMetrics.scaledDensity
             setTextColor(Color.GRAY)
             gravity = Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(dp(56), dp(48)))
+        }, LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width), d(R.dimen.bridgefs_list_row_height)))
         box.addView(titleRow)
 
         box.addView(TextView(this).apply { text = "目录"; textSize = d(R.dimen.bridgefs_title_text_size) / resources.displayMetrics.scaledDensity; setTextColor(color(R.color.bridgefs_text_primary)) }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_row_height)))
@@ -100,7 +100,7 @@ class MainActivity : Activity() {
                 text = "📂 " + File(path).name.ifBlank { path } + "\n" + path
                 textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
                 maxLines = 2
-                setPadding(dp(10), 0, dp(10), 0)
+                setPadding(d(R.dimen.bridgefs_content_inset), 0, d(R.dimen.bridgefs_content_inset), 0)
                 gravity = Gravity.CENTER_VERTICAL
                 background = rounded(
                     if (path == prefs.getString("root_path", null)) R.color.bridgefs_selected_background else R.color.bridgefs_panel_background,
@@ -167,7 +167,7 @@ class MainActivity : Activity() {
         val overlayRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val overlayStatus = TextView(this).apply {
             text = if (Settings.canDrawOverlays(this@MainActivity)) "悬浮窗权限 ✅" else "悬浮窗权限 ❌"
-            textSize = 13f
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
             gravity = Gravity.CENTER
             setOnClickListener {
                 if (!Settings.canDrawOverlays(this@MainActivity)) startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
@@ -213,8 +213,8 @@ class MainActivity : Activity() {
             text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
             textSize = 12f
             setTextColor(Color.GRAY)
-            setPadding(0, dp(8), 0, dp(8))
-        }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
+            setPadding(0, d(R.dimen.bridgefs_content_vertical_padding), 0, d(R.dimen.bridgefs_content_vertical_padding))
+        }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_home_note_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
         setContentView(box)
     }
 
@@ -270,7 +270,7 @@ class MainActivity : Activity() {
                     text = "📂 " + dir.name
                     textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(8), 0, dp(8), 0)
+                    setPadding(d(R.dimen.bridgefs_small_inset), 0, d(R.dimen.bridgefs_small_inset), 0)
                     setTextColor(color(R.color.bridgefs_text_primary))
                     background = rounded(R.color.bridgefs_button_background, R.dimen.bridgefs_card_corner_radius)
                     setOnClickListener { pickerPath = dir; renderPicker() }
@@ -279,7 +279,7 @@ class MainActivity : Activity() {
                 })
             }
             scroll.addView(list)
-            val availableHeight = (resources.displayMetrics.heightPixels * .36f).toInt()
+            val availableHeight = (resources.displayMetrics.heightPixels * .33f).toInt()
             val contentHeight = dirs.size * (d(R.dimen.bridgefs_list_row_height) + d(R.dimen.bridgefs_section_spacing))
             val viewport = minOf(availableHeight, maxOf(d(R.dimen.bridgefs_list_row_height), contentHeight))
             container.addView(scroll, LinearLayout.LayoutParams(-1, viewport).also {
