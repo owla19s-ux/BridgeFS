@@ -44,7 +44,7 @@ private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.La
 
 private fun showBall(){
 ball=TextView(this).apply{
-text="📁";textSize=22f;gravity=17;alpha=.7f;background=bg("#CC1E293B",28,"#6366F1")
+text="📁";textSize=22f;gravity=17;alpha=.7f;background=tokenBg(R.color.bridgefs_ball_background,R.dimen.bridgefs_ball_corner_radius,R.color.bridgefs_ball_border)
 setOnClickListener{if(alpha<1f){alpha=1f;translationX=0f}else showPanel()}
 }
 ballLp=lp(dp(56),dp(56));ballLp.gravity=Gravity.TOP or Gravity.LEFT
@@ -88,7 +88,7 @@ clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.
 val inputFrame=FrameLayout(this).apply{
 addView(input,FrameLayout.LayoutParams(-1,-1))
 addView(TextView(this@FileBridgeService).apply{
-text="!";textSize=14f;gravity=Gravity.CENTER;setTextColor(color(R.color.bridgefs_accent))
+text="!";textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.CENTER;setTextColor(color(R.color.bridgefs_accent))
 background=tokenBg(R.color.bridgefs_button_background,R.dimen.bridgefs_button_corner_radius,null)
 contentDescription="编辑指令";setOnClickListener{showCommandInputDialog(input)}
 },FrameLayout.LayoutParams(d(R.dimen.bridgefs_input_symbol_size),d(R.dimen.bridgefs_input_symbol_size),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=d(R.dimen.bridgefs_input_symbol_inset);it.rightMargin=d(R.dimen.bridgefs_input_symbol_inset)})
@@ -114,7 +114,7 @@ runButton=run
 val inputSide=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
 addView(paste,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)))
-addView(run,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.topMargin=dp(6)})
+addView(run,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 }
 val inputRow=LinearLayout(this).apply{
 gravity=Gravity.BOTTOM
@@ -187,7 +187,7 @@ private fun showCommandInputDialog(target:EditText){
  }
  val edit=EditText(this).apply{
   setText(target.text);setSelection(text.length);hint="输入 AI 指令..."
-  textSize=14f;gravity=Gravity.TOP;minLines=6;maxLines=12
+  textSize=d(R.dimen.bridgefs_dialog_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.TOP;minLines=6;maxLines=12
   inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
   background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_input_corner_radius,R.color.bridgefs_input_border)
   setPadding(dp(10),dp(8),dp(10),dp(8))
@@ -276,7 +276,7 @@ background=tokenBg(R.color.bridgefs_panel_background,R.dimen.bridgefs_panel_corn
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val back=smallButton("←"){if(current.absolutePath==root.absolutePath)showPanel()else{browserCurrent=current.parentFile?:root;renderBrowser()}}
 val rootBtn=TextView(this).apply{
-text=current.name.ifBlank{current.absolutePath};textSize=13f;gravity=Gravity.CENTER
+text=current.name.ifBlank{current.absolutePath};textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;gravity=Gravity.CENTER
 setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE
 setTextColor(color(R.color.bridgefs_text_primary))
 background=tokenBg(R.color.bridgefs_button_background,R.dimen.bridgefs_card_corner_radius,null)
@@ -366,7 +366,7 @@ clearPanel();browserCurrent=root;renderBrowser()
 list.addView(row,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)).also{if(index>0)it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 }
 if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
-val screenLimit=(resources.displayMetrics.heightPixels*.55f).toInt()-dp(88)
+val screenLimit=(resources.displayMetrics.heightPixels*.55f).toInt()-d(R.dimen.bridgefs_home_root_list_chrome_height)
 val rowsHeight=if(rs.isEmpty())d(R.dimen.bridgefs_list_row_height) else rs.size*d(R.dimen.bridgefs_list_row_height)+(rs.size-1)*d(R.dimen.bridgefs_section_spacing)
 val viewport=minOf(rowsHeight,screenLimit.coerceAtLeast(d(R.dimen.bridgefs_list_row_height)))
 box.addView(ScrollView(this).apply{isFillViewport=true;addView(list)},LinearLayout.LayoutParams(-1,viewport).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
