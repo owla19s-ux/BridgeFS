@@ -21,6 +21,7 @@ private lateinit var wm:WindowManager
 private lateinit var ball:TextView
 private var panel:LinearLayout?=null
 private var commandInput:EditText?=null
+private var receiptView:TextView?=null
 private lateinit var root:File
 private lateinit var ballLp:WindowManager.LayoutParams
 private lateinit var panelLpRef:WindowManager.LayoutParams
@@ -66,7 +67,8 @@ setTextColor(color(R.color.bridgefs_accent));setSingleLine(true);ellipsize=andro
 setOnClickListener{showBrowser()}
 }
 address.addView(dir,LinearLayout.LayoutParams(0,d(R.dimen.bridgefs_row_height),1f))
-val menuButton=smallButton("⋮"){showPanelMenu(it)}
+val menuButton=smallButton("⋮"){}
+menuButton.setOnClickListener{showPanelMenu(menuButton)}
 address.addView(menuButton,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
 box.addView(address,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_row_height)))
 installPanelDrag(address)
@@ -127,6 +129,7 @@ setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(color(R.color.bridgefs_text_s
 background=tokenBg(R.color.bridgefs_result_background,R.dimen.bridgefs_card_corner_radius,null)
 }
 val resultScroll=ScrollView(this).apply{isFillViewport=true;addView(receipt,ScrollView.LayoutParams(-1,-2))}
+receiptView=receipt
 val copyReceipt=smallButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
 val receiptRow=LinearLayout(this).apply{
 gravity=Gravity.TOP
@@ -232,7 +235,7 @@ private var dragDownRawY=0f
 private var dragStartX=0
 private var dragStartY=0
 
-private fun findReceipt(v:View):TextView?{if(v is TextView&&v.text.toString()=="执行结果会显示在这里")return v;if(v is ViewGroup)for(i in 0 until v.childCount){val r=findReceipt(v.getChildAt(i));if(r!=null)return r};return null}
+private fun findReceipt(@Suppress("UNUSED_PARAMETER") v:View):TextView?=receiptView
 private fun smallButton(label:String,onClick:()->Unit)=Button(this).apply{
 text=label;textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity
 minWidth=0;minimumWidth=0;setPadding(0,0,0,0)
@@ -284,7 +287,7 @@ top.addView(rootBtn,LinearLayout.LayoutParams(0,d(R.dimen.bridgefs_button_height
 top.addView(copy,LinearLayout.LayoutParams(d(R.dimen.bridgefs_button_width),d(R.dimen.bridgefs_button_height)).also{it.marginStart=d(R.dimen.bridgefs_section_spacing)})
 box.addView(top,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
 val children=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty()
-val rows=children.take(50).map< File, Any >{it}.toMutableList<Any>()
+val rows=children.take(50).map{it as Any}.toMutableList<Any>()
 if(children.size>50)rows.add("…等 "+(children.size-50)+" 项")
 val list=RecyclerView(this).apply{
 layoutManager=LinearLayoutManager(this@FileBridgeService)
@@ -327,7 +330,6 @@ holder.label.setTextColor(color(R.color.bridgefs_text_secondary))
 holder.label.setOnClickListener(null)
 }
 }
-override fun onCreateViewHolder(parent:android.view.ViewGroup,viewType:Int):Holder=Holder(TextView(this@FileBridgeService))
 }
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return "📁 "+current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"📁" else "📄")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
 private fun showRootList(){
@@ -362,7 +364,7 @@ list.addView(row,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height
 }
 if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
 val screenLimit=(resources.displayMetrics.heightPixels*.55f).toInt()-dp(88)
-val rowsHeight=rs.size*d(R.dimen.bridgefs_list_row_height)+maxOf(0,rs.size-1)*d(R.dimen.bridgefs_section_spacing)
+val rowsHeight=if(rs.isEmpty())d(R.dimen.bridgefs_list_row_height) else rs.size*d(R.dimen.bridgefs_list_row_height)+(rs.size-1)*d(R.dimen.bridgefs_section_spacing)
 val viewport=minOf(rowsHeight,screenLimit.coerceAtLeast(d(R.dimen.bridgefs_list_row_height)))
 box.addView(ScrollView(this).apply{isFillViewport=true;addView(list)},LinearLayout.LayoutParams(-1,viewport).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 panel=box
