@@ -128,7 +128,7 @@ text="执行结果会显示在这里";textSize=d(R.dimen.bridgefs_aux_text_size)
 setPadding(d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding),d(R.dimen.bridgefs_content_inset),d(R.dimen.bridgefs_content_vertical_padding));setTextColor(color(R.color.bridgefs_text_secondary))
 background=tokenBg(R.color.bridgefs_result_background,R.dimen.bridgefs_card_corner_radius,null)
 }
-val resultScroll=ScrollView(this).apply{isFillViewport=true;addView(receipt,ScrollView.LayoutParams(-1,-2))}
+val resultScroll=ScrollView(this).apply{isFillViewport=true;addView(receipt,FrameLayout.LayoutParams(-1,-2))}
 receiptView=receipt
 val copyReceipt=smallButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
 val receiptRow=LinearLayout(this).apply{
