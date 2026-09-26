@@ -26,4 +26,8 @@
     <dimen name="bridgefs_content_vertical_padding">8dp</dimen>
     <dimen name="bridgefs_small_inset">8dp</dimen>
     <dimen name="bridgefs_home_note_height">64dp</dimen>
+    <dimen name="bridgefs_home_root_list_chrome_height">88dp</dimen>
+    <dimen name="bridgefs_ball_corner_radius">28dp</dimen>
+    <dimen name="bridgefs_ball_size">56dp</dimen>
+    <dimen name="bridgefs_dialog_text_size">14sp</dimen>
 </resources>
