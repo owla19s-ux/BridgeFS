@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="bridgefs_panel_padding">10dp</dimen>
+    <dimen name="bridgefs_section_spacing">8dp</dimen>
+    <dimen name="bridgefs_row_height">40dp</dimen>
+    <dimen name="bridgefs_list_row_height">48dp</dimen>
+    <dimen name="bridgefs_button_width">56dp</dimen>
+    <dimen name="bridgefs_button_height">40dp</dimen>
+    <dimen name="bridgefs_panel_corner_radius">12dp</dimen>
+    <dimen name="bridgefs_card_corner_radius">12dp</dimen>
+    <dimen name="bridgefs_button_corner_radius">8dp</dimen>
+    <dimen name="bridgefs_input_corner_radius">8dp</dimen>
+    <dimen name="bridgefs_title_text_size">15sp</dimen>
+    <dimen name="bridgefs_body_text_size">13sp</dimen>
+    <dimen name="bridgefs_aux_text_size">11sp</dimen>
+</resources>
