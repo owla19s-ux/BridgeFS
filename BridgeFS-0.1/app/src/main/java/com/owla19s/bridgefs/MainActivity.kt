@@ -212,7 +212,7 @@ class MainActivity : Activity() {
         box.addView(TextView(this).apply {
             text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
             textSize = d(R.dimen.bridgefs_aux_text_size) / resources.displayMetrics.scaledDensity
-            setTextColor(Color.GRAY)
+            setTextColor(color(R.color.bridgefs_text_secondary))
             setPadding(0, d(R.dimen.bridgefs_content_vertical_padding), 0, d(R.dimen.bridgefs_content_vertical_padding))
         }, LinearLayout.LayoutParams(-1, d(R.dimen.bridgefs_home_note_height)).also { it.topMargin = d(R.dimen.bridgefs_section_spacing) })
         setContentView(box)
