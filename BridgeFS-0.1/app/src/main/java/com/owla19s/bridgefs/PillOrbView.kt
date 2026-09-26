@@ -31,9 +31,10 @@ class PillOrbView(context: Context) : View(context) {
         }
     }
 
+    // Reserved edge-hide baseline: 32dp wide exposes 16dp; 56dp high exposes 28dp when half-clipped.
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(
-            resolveSize((32 * density).toInt(), widthMeasureSpec),
+            resolveSize((40 * density).toInt(), widthMeasureSpec),
             resolveSize((56 * density).toInt(), heightMeasureSpec)
         )
     }

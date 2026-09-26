@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="bridgefs_bottom_bar_height">56dp</dimen>
-    <dimen name="panel_min_height">360dp</dimen>
 </resources>

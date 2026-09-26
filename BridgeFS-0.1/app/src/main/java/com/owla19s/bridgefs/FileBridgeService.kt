@@ -78,20 +78,20 @@ if(wasFloating)runCatching{wm.removeView(bottom_bar)}
 log("UI","showPanel")
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
-setPadding(dp(12),dp(12),dp(12),dp(12))
-background=bg("#FFFFFF",16,null)
-minimumHeight=resources.getDimensionPixelSize(R.dimen.panel_min_height)
+setPadding(dp(8),dp(8),dp(8),dp(8))
+background=bg("#FFFFFF",16,"#EEEEEE")
+elevation=dp(3).toFloat()
 }
 val address=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val dir=TextView(this).apply{
-text="📁 "+root.name.ifBlank{root.absolutePath}
+text="📁 "+root.absolutePath
 textSize=15f;setTextColor(Color.DKGRAY);setSingleLine(true)
 ellipsize=android.text.TextUtils.TruncateAt.MIDDLE
 setOnClickListener{showBrowser()}
 setOnLongClickListener{copyText("BridgeFS路径",root.absolutePath);toast("已复制路径");true}
 }
-address.addView(dir,LinearLayout.LayoutParams(-1,dp(40)))
-box.addView(address,LinearLayout.LayoutParams(-1,dp(40)))
+address.addView(dir,LinearLayout.LayoutParams(-1,dp(36)))
+box.addView(address,LinearLayout.LayoutParams(-1,dp(36)))
 // Main panel movement is bound only to the bottom bar.
 val input=EditText(this).apply{
 setText("")
@@ -123,32 +123,38 @@ log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗
 val inputSide=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
 addView(paste,LinearLayout.LayoutParams(dp(56),dp(40)))
-addView(run,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.topMargin=dp(6)})
+addView(run,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.topMargin=dp(5)})
 }
 val inputRow=LinearLayout(this).apply{
 gravity=Gravity.BOTTOM
-addView(inputFrame,LinearLayout.LayoutParams(0,dp(86),1f))
-addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(86)).also{it.marginStart=dp(8)})
+addView(inputFrame,LinearLayout.LayoutParams(0,dp(85),1f))
+addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(85)).also{it.marginStart=dp(8)})
 }
-box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(86)).also{it.topMargin=dp(8)})
+box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(85)).also{it.topMargin=dp(8)})
 
 val receipt=TextView(this).apply{
 text="执行结果会显示在这里";textSize=12f;typeface=android.graphics.Typeface.MONOSPACE
-setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null)
+setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null);minHeight=dp(40)
 }
-val resultScroll=ScrollView(this).apply{
-isFillViewport=true
+val resultScroll=object:ScrollView(this){
+override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
+super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dp(100),View.MeasureSpec.AT_MOST))
+}
+}.apply{
+isFillViewport=false
 addView(receipt,FrameLayout.LayoutParams(-1,-2))
 }
 val copyReceipt=mainButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
 val receiptRow=LinearLayout(this).apply{
 gravity=Gravity.TOP
-addView(resultScroll,LinearLayout.LayoutParams(0,dp(100),1f))
+addView(resultScroll,LinearLayout.LayoutParams(0,-2,1f))
 addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(8)})
 }
-box.addView(receiptRow,LinearLayout.LayoutParams(-1,dp(100)).also{it.topMargin=dp(8)})
+box.addView(receiptRow,LinearLayout.LayoutParams(-1,-2).also{it.topMargin=dp(8)})
 
 addPanelFooter(box)
+box.setPadding(box.paddingLeft,dp(8),box.paddingRight,dp(8))
+(bottom_bar.layoutParams as? LinearLayout.LayoutParams)?.let{it.topMargin=dp(8);bottom_bar.layoutParams=it}
 bottomBarBrand.visibility=View.VISIBLE
 panel=box
 box.setOnTouchListener{_,event->
@@ -335,7 +341,9 @@ val message="""可用指令：
 [copy-path: 路径] 复制路径
 
 路径默认相对于项目根目录；可以一次发送多条指令。"""
-AlertDialog.Builder(this).setTitle("指令帮助").setMessage(message).setPositiveButton("知道了",null).show()
+val dialog=AlertDialog.Builder(this).setTitle("指令帮助").setMessage(message).setPositiveButton("知道了",null).create()
+dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+dialog.show()
 }
 private fun copyText(label:String,text:String){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.setPrimaryClip(ClipData.newPlainText(label,text))}
 private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，它可以读写我手机里的文件。
