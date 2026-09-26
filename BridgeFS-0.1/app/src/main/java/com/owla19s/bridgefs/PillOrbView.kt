@@ -33,7 +33,7 @@ class PillOrbView(context: Context) : View(context) {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(
-            resolveSize((40 * density).toInt(), widthMeasureSpec),
+            resolveSize((32 * density).toInt(), widthMeasureSpec),
             resolveSize((56 * density).toInt(), heightMeasureSpec)
         )
     }

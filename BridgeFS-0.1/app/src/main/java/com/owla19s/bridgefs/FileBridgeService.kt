@@ -16,6 +16,7 @@ class FileBridgeService:Service(){
 private lateinit var wm:WindowManager
 private lateinit var bottom_bar:LinearLayout
 private lateinit var ball:PillOrbView
+private lateinit var bottomBarBrand:TextView
 private var panel:LinearLayout?=null
 private var isRenderingBrowser=false
 private var commandInput:EditText?=null
@@ -36,6 +37,7 @@ log("Service","onCreate");showBall()
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
 private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,-3)
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
+private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
 
 private fun showBall(){
 if(!::bottom_bar.isInitialized){
@@ -45,9 +47,9 @@ orientation=LinearLayout.HORIZONTAL
 gravity=Gravity.CENTER_VERTICAL or Gravity.RIGHT
 isClickable=true
 setPadding(dp(10),0,dp(10),0)
-val brand=TextView(this@FileBridgeService).apply{text="BridgeFS";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER_VERTICAL}
-addView(brand,LinearLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)))
-addView(ball,LinearLayout.LayoutParams(dp(40),resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)).also{it.marginStart=dp(8)})
+bottomBarBrand=TextView(this@FileBridgeService).apply{text="BridgeFS";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE}
+addView(bottomBarBrand,LinearLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)))
+addView(ball,LinearLayout.LayoutParams(dp(32),resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)).also{it.marginStart=dp(8)})
 setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 }
 bottomBarLp=lp(WindowManager.LayoutParams.WRAP_CONTENT,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
@@ -60,6 +62,7 @@ val oldParent=bottom_bar.parent
 if(oldParent is ViewGroup)oldParent.removeView(bottom_bar)
 else if(oldParent!=null||bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
 bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f
+bottomBarBrand.visibility=View.GONE
 ball.visibility=View.VISIBLE;ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
 bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 wm.addView(bottom_bar,bottomBarLp)
@@ -74,64 +77,91 @@ orbTransitionOrigin=origin
 if(wasFloating)runCatching{wm.removeView(bottom_bar)}
 log("UI","showPanel")
 val box=LinearLayout(this).apply{
-orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12));background=bg("#FFFFFF",16,null)
+orientation=LinearLayout.VERTICAL
+setPadding(dp(12),dp(12),dp(12),dp(12))
+background=bg("#FFFFFF",16,null)
+minimumHeight=resources.getDimensionPixelSize(R.dimen.panel_min_height)
 }
-val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-top.addView(View(this),LinearLayout.LayoutParams(0,dp(1),1f))
-val help=smallButton("帮助"){copyInstructions()}
-val close=smallButton("⌄"){closePanel()}
-top.addView(help,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
-top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
-box.addView(top)
-// Panel movement is handled by the footer robot and BridgeFS label.
-
 val address=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-val dir=TextView(this).apply{text="📂 "+root.name;if(root.name.isBlank())text="📂 "+root.absolutePath;textSize=13f;setTextColor(Color.rgb(99,102,241));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.MIDDLE}
-address.addView(dir,LinearLayout.LayoutParams(0,dp(40),1f))
-address.addView(smallButton("选择"){showBrowser()},LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
-address.addView(smallButton("复制路径"){copyText("BridgeFS路径",root.absolutePath)},LinearLayout.LayoutParams(dp(72),dp(40)).also{it.marginStart=dp(6)})
-box.addView(address,LinearLayout.LayoutParams(-1,dp(40)).also{it.topMargin=dp(8)})
-
+val dir=TextView(this).apply{
+text="📁 "+root.name.ifBlank{root.absolutePath}
+textSize=15f;setTextColor(Color.DKGRAY);setSingleLine(true)
+ellipsize=android.text.TextUtils.TruncateAt.MIDDLE
+setOnClickListener{showBrowser()}
+setOnLongClickListener{copyText("BridgeFS路径",root.absolutePath);toast("已复制路径");true}
+}
+address.addView(dir,LinearLayout.LayoutParams(-1,dp(40)))
+box.addView(address,LinearLayout.LayoutParams(-1,dp(40)))
+// Main panel movement is bound only to the bottom bar.
 val input=EditText(this).apply{
-hint="粘贴 AI 指令到这里...";textSize=13f;gravity=Gravity.TOP
+setText("")
+hint="粘贴 AI 指令到这里..."
+textSize=13f;gravity=Gravity.TOP
 inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
 setPadding(dp(10),dp(8),dp(42),dp(8));background=bg("#FFFFFF",8,"#E2E8F0")
+isFocusable=false;isFocusableInTouchMode=false;showSoftInputOnFocus=false
 setOnClickListener{showCommandInputDialog(this)}
 }
 commandInput=input
 clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.setSelection(commandInput?.text?.length?:0)}}
 val inputFrame=FrameLayout(this).apply{
 addView(input,FrameLayout.LayoutParams(-1,-1))
-addView(TextView(this@FileBridgeService).apply{text="!";textSize=14f;gravity=Gravity.CENTER;setTextColor(Color.rgb(46,123,224));contentDescription="指令帮助";setOnClickListener{copyInstructions()}},FrameLayout.LayoutParams(dp(28),dp(28),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=dp(4);it.rightMargin=dp(4)})
+addView(TextView(this@FileBridgeService).apply{
+text="!";textSize=14f;gravity=Gravity.CENTER;setTextColor(Color.rgb(46,123,224))
+contentDescription="指令帮助";background=bg("#F1F5F9",8,null)
+setOnClickListener{showHelpDialog()}
+},FrameLayout.LayoutParams(dp(32),dp(32),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=dp(4);it.rightMargin=dp(4)})
 }
-val paste=smallButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
-val run=smallButton("执行"){
+val paste=mainButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
+val run=mainButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
 val results=if(cs.isEmpty())listOf("未发现可执行指令")else cs.map{CommandExecutor(root,this).execute(it)}
 findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
 log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
 }
-val inputSide=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;addView(paste,LinearLayout.LayoutParams(dp(56),dp(40)));addView(run,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.topMargin=dp(6)})}
-val inputRow=LinearLayout(this).apply{gravity=Gravity.BOTTOM;addView(inputFrame,LinearLayout.LayoutParams(0,dp(86),1f));addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(86)).also{it.marginStart=dp(8)})}
+val inputSide=LinearLayout(this).apply{
+orientation=LinearLayout.VERTICAL
+addView(paste,LinearLayout.LayoutParams(dp(56),dp(40)))
+addView(run,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.topMargin=dp(6)})
+}
+val inputRow=LinearLayout(this).apply{
+gravity=Gravity.BOTTOM
+addView(inputFrame,LinearLayout.LayoutParams(0,dp(86),1f))
+addView(inputSide,LinearLayout.LayoutParams(dp(56),dp(86)).also{it.marginStart=dp(8)})
+}
 box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(86)).also{it.topMargin=dp(8)})
 
-val receipt=TextView(this).apply{text="执行结果会显示在这里";textSize=12f;typeface=android.graphics.Typeface.MONOSPACE;setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null)}
-val copyReceipt=smallButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
-val receiptRow=LinearLayout(this).apply{gravity=Gravity.TOP;addView(receipt,LinearLayout.LayoutParams(0,dp(48),1f));addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(8)})}
-box.addView(receiptRow,LinearLayout.LayoutParams(-1,dp(48)).also{it.topMargin=dp(8)})
+val receipt=TextView(this).apply{
+text="执行结果会显示在这里";textSize=12f;typeface=android.graphics.Typeface.MONOSPACE
+setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(Color.GRAY);background=bg("#F8FAFC",8,null)
+}
+val resultScroll=ScrollView(this).apply{
+isFillViewport=true
+addView(receipt,FrameLayout.LayoutParams(-1,-2))
+}
+val copyReceipt=mainButton("复制"){copyText("BridgeFS回执",receipt.text.toString())}
+val receiptRow=LinearLayout(this).apply{
+gravity=Gravity.TOP
+addView(resultScroll,LinearLayout.LayoutParams(0,dp(100),1f))
+addView(copyReceipt,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(8)})
+}
+box.addView(receiptRow,LinearLayout.LayoutParams(-1,dp(100)).also{it.topMargin=dp(8)})
 
-
-addPanelFooter(box);panel=box
+addPanelFooter(box)
+bottomBarBrand.visibility=View.VISIBLE
+panel=box
+box.setOnTouchListener{_,event->
+if(event.actionMasked==MotionEvent.ACTION_OUTSIDE){closePanel();true}else false
+}
 val sw=resources.displayMetrics.widthPixels
-panelLpRef=panelLp(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
+panelLpRef=mainPanelLp(dp(234),WindowManager.LayoutParams.WRAP_CONTENT)
 panelLpRef.gravity=Gravity.TOP or Gravity.LEFT
-panelLpRef.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+panelLpRef.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
 val barCenter=bottomBarLp.x+bottom_bar.width/2
-panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-dp(300)-dp(8)).coerceAtLeast(0)
+panelLpRef.x=if(barCenter<sw/2)dp(8) else (sw-dp(234)-dp(8)).coerceAtLeast(0)
 panelLpRef.y=dp(24)
 wm.addView(box,panelLpRef)
-box.post{val maxH=(resources.displayMetrics.heightPixels*.65f).toInt();if(box.height>maxH){panelLpRef.height=maxH;runCatching{wm.updateViewLayout(box,panelLpRef)}}}
 }catch(e:Exception){log("Error","showPanel："+e.message);runCatching{clearPanel();showBall()};toast("打开面板失败："+e.message)}
 }
 
@@ -213,6 +243,7 @@ else runCatching{wm.removeView(bottom_bar)}
 }
 if(bottom_bar.parent==null&&bottom_bar.isAttachedToWindow)runCatching{wm.removeView(bottom_bar)}
 bottom_bar.visibility=View.VISIBLE
+bottomBarBrand.visibility=View.VISIBLE
 ball.visibility=View.VISIBLE
 bottom_bar.setOnTouchListener{v,e->bottomBarTouchHandler(v,e)}
 if(bottom_bar.parent==null)box.addView(bottom_bar,LinearLayout.LayoutParams(-1,height))
@@ -291,6 +322,21 @@ private var bottomBarMoved=false
 
 private fun findReceipt(v:View):TextView?{if(v is TextView&&v.text.toString()=="执行结果会显示在这里")return v;if(v is ViewGroup)for(i in 0 until v.childCount){val r=findReceipt(v.getChildAt(i));if(r!=null)return r};return null}
 private fun smallButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=14f;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);background=bg("#F1F5F9",8,null);setOnClickListener{onClick()}}
+private fun mainButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;minWidth=0;minimumWidth=0;minimumHeight=0;setPadding(0,0,0,0);background=bg("#F1F5F9",12,null);setOnClickListener{onClick()}}
+private fun showHelpDialog(){
+val message="""可用指令：
+[list] 列出项目目录
+[read: 相对路径] 读取文件
+[write: 相对路径]...[/write] 新建或写入文件
+[edit: 相对路径]...====...[/edit] 编辑文件
+[search: *.xx] 按文件名搜索
+[grep: 关键词] 按内容搜索
+[path: 路径] 获取完整绝对路径
+[copy-path: 路径] 复制路径
+
+路径默认相对于项目根目录；可以一次发送多条指令。"""
+AlertDialog.Builder(this).setTitle("指令帮助").setMessage(message).setPositiveButton("知道了",null).show()
+}
 private fun copyText(label:String,text:String){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.setPrimaryClip(ClipData.newPlainText(label,text))}
 private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，它可以读写我手机里的文件。
 你想操作文件时，请用下面的指令格式，我会执行后把结果贴回来给你。
