@@ -214,6 +214,7 @@ private fun showCommandInputDialog(target:EditText){
 private fun clearPanel(){
 runCatching{panel?.let{wm.removeView(it)}}
 panel=null
+receiptView=null
 log("UI","clearPanel")
 }
 private fun closePanel(){try{log("UI","closePanel");releaseInputFocus();clipboardCallback=null;commandInput=null;clearPanel();handler.removeCallbacksAndMessages(null);ball.visibility=View.VISIBLE;ball.alpha=.7f;ball.translationX=0f}catch(e:Exception){log("Error","closePanel："+e.message);toast("关闭面板失败："+e.message)}}
@@ -402,8 +403,11 @@ private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
 override fun onDestroy(){
 clipboardCallback=null;commandInput=null;log("Service","onDestroy")
-commandExecutor.shutdownNow();logExecutor.shutdown()
-clearPanel();if(::ball.isInitialized)runCatching{wm.removeView(ball)}
+commandExecutor.shutdownNow()
+clearPanel()
+log("Service","onDestroy")
+logExecutor.shutdown()
+if(::ball.isInitialized)runCatching{wm.removeView(ball)}
 running=false;super.onDestroy()
 }
 }
