@@ -14,4 +14,16 @@
     <dimen name="bridgefs_body_text_size">13sp</dimen>
     <dimen name="bridgefs_aux_text_size">11sp</dimen>
     <dimen name="bridgefs_file_list_max_height">300dp</dimen>
+    <dimen name="bridgefs_input_row_height">86dp</dimen>
+    <dimen name="bridgefs_result_max_height">100dp</dimen>
+    <dimen name="bridgefs_panel_footer_height">56dp</dimen>
+    <dimen name="bridgefs_dialog_padding">16dp</dimen>
+    <dimen name="bridgefs_dialog_editor_height">180dp</dimen>
+    <dimen name="bridgefs_dialog_actions_height">48dp</dimen>
+    <dimen name="bridgefs_input_symbol_size">28dp</dimen>
+    <dimen name="bridgefs_input_symbol_inset">6dp</dimen>
+    <dimen name="bridgefs_content_inset">10dp</dimen>
+    <dimen name="bridgefs_content_vertical_padding">8dp</dimen>
+    <dimen name="bridgefs_small_inset">8dp</dimen>
+    <dimen name="bridgefs_home_note_height">64dp</dimen>
 </resources>
