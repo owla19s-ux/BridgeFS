@@ -10,4 +10,5 @@
     <color name="bridgefs_border">#E0E0E0</color>
     <color name="bridgefs_ripple_orange">#33FF7A00</color>
     <color name="bridgefs_ripple_gray">#1A888888</color>
+    <color name="bridgefs_selected_surface">#FFF3E8</color>
 </resources>

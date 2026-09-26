@@ -97,7 +97,7 @@ bottom_bar.visibility=View.VISIBLE;bottom_bar.alpha=1f;bottomBarBrand.visibility
 (ball.layoutParams as? LinearLayout.LayoutParams)?.let{it.marginStart=0;ball.layoutParams=it}
 ball.alpha=1f;ball.translationX=0f;ball.translationY=0f
 bottomBarLp.width=WindowManager.LayoutParams.WRAP_CONTENT;bottomBarLp.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
-bottomBarLp.gravity=Gravity.TOP or Gravity.LEFT;bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+bottomBarLp.gravity=Gravity.TOP or Gravity.START;bottomBarLp.flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 bottomBarLp.softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
 bottom_bar.requestLayout();bottom_bar.measure(View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED),View.MeasureSpec.makeMeasureSpec(bottomBarLp.height,View.MeasureSpec.EXACTLY))
 val maxFloatingX=(resources.displayMetrics.widthPixels-bottom_bar.measuredWidth).coerceAtLeast(0)
@@ -205,7 +205,7 @@ box.addView(inputRow,LinearLayout.LayoutParams(-1,dp(85)).also{it.topMargin=dp(8
 
 val receipt=TextView(this).apply{
 text="执行结果会显示在这里";textSize=11f;typeface=android.graphics.Typeface.MONOSPACE
-setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(resources.getColor(R.color.bridgefs_text_secondary));background=bg("#F5F6F8",10,null);minHeight=dp(40)
+setPadding(dp(10),dp(8),dp(10),dp(8));setTextColor(resources.getColor(R.color.bridgefs_text_secondary));background=resourceBg(R.color.bridgefs_input_surface,R.dimen.dialog_input_corner_radius);minHeight=dp(40)
 }
 val resultScroll=object:ScrollView(this){
 override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
@@ -242,43 +242,39 @@ runCatching{inputDialog?.dismiss();inputDialog=null}
 }
 private fun toast(msg:String){handler.post{Toast.makeText(this,msg,Toast.LENGTH_SHORT).show()}}
 private fun showCommandInputDialog(target:EditText){
- if(inputDialog?.isShowing==true)return
- val dialog=Dialog(this)
- inputDialog=dialog
- dialog.setOnDismissListener{inputDialog=null}
- dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
- val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(16),dp(16),dp(16))}
- val edit=EditText(this).apply{
-  setText(target.text)
-  setSelection(text.length)
-  hint="输入 AI 指令..."
-  textSize=14f
-  gravity=Gravity.TOP
-  minLines=6
-  maxLines=12
-  inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
- }
- box.addView(edit,LinearLayout.LayoutParams(-1,dp(180)))
- val actions=LinearLayout(this).apply{gravity=Gravity.END}
- val cancel=Button(this).apply{text="取消";setOnClickListener{dialog.dismiss()}}
- val ok=Button(this).apply{text="确定";setOnClickListener{target.setText(edit.text.toString());target.setSelection(target.text.length);dialog.dismiss()}}
- actions.addView(cancel,LinearLayout.LayoutParams(dp(80),dp(44)))
- actions.addView(ok,LinearLayout.LayoutParams(dp(80),dp(44)).also{it.marginStart=dp(8)})
- box.addView(actions,LinearLayout.LayoutParams(-1,dp(44)).also{it.topMargin=dp(8)})
- dialog.setContentView(box)
- dialog.window?.let{
-  it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-  it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
-  it.setLayout(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
- }
- dialog.show()
- dialog.window?.let{
-  it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-  it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
-  it.setLayout(dp(300),WindowManager.LayoutParams.WRAP_CONTENT)
- }
- edit.requestFocus()
- edit.post{(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).showSoftInput(edit,InputMethodManager.SHOW_IMPLICIT)}
+if(inputDialog?.isShowing==true)return
+val dialog=Dialog(this)
+inputDialog=dialog
+dialog.setOnDismissListener{inputDialog=null}
+val box=LinearLayout(this).apply{
+orientation=LinearLayout.VERTICAL
+setPadding(dimen(R.dimen.directory_dialog_padding),dimen(R.dimen.directory_dialog_padding),dimen(R.dimen.directory_dialog_padding),dimen(R.dimen.directory_dialog_padding))
+background=resourceBg(R.color.bridgefs_surface,R.dimen.dialog_corner_radius,R.color.bridgefs_border);elevation=dp(8).toFloat()
+}
+val title=TextView(this).apply{text="输入指令";textSize=resources.getDimension(R.dimen.dialog_title_text_size)/resources.displayMetrics.scaledDensity;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setTypeface(null,1)}
+box.addView(title,LinearLayout.LayoutParams(-1,-2).also{it.bottomMargin=dp(8)})
+val edit=EditText(this).apply{
+setText(target.text);setSelection(text.length);hint="输入 AI 指令..."
+textSize=resources.getDimension(R.dimen.dialog_input_text_size)/resources.displayMetrics.scaledDensity
+gravity=Gravity.TOP
+setPadding(dp(10),dp(8),dp(10),dp(8))
+background=bg("#F5F6F8",10,null)
+minLines=4;maxLines=8
+inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+}
+box.addView(edit,LinearLayout.LayoutParams(-1,dimen(R.dimen.command_dialog_input_height)))
+val actions=LinearLayout(this).apply{gravity=Gravity.END}
+val cancel=mainButton("取消"){dialog.dismiss()}.apply{background=rippleBg(resourceBg(R.color.bridgefs_button_bg,R.dimen.dialog_button_corner_radius),R.color.bridgefs_ripple_orange)}
+val confirm=mainButton("确定"){target.setText(edit.text.toString());target.setSelection(target.text.length);dialog.dismiss()}.apply{background=rippleBg(bg("#F2F3F5",12,null),R.color.bridgefs_ripple_orange)}
+actions.addView(cancel,LinearLayout.LayoutParams(dimen(R.dimen.dialog_button_width),dimen(R.dimen.dialog_button_height)))
+actions.addView(confirm,LinearLayout.LayoutParams(dimen(R.dimen.dialog_button_width),dimen(R.dimen.dialog_button_height)).also{it.marginStart=dp(8)})
+box.addView(actions,LinearLayout.LayoutParams(-1,dimen(R.dimen.dialog_button_height)).also{it.topMargin=dp(8)})
+dialog.setContentView(box)
+dialog.window?.let{it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)}
+dialog.show()
+dialog.window?.let{it.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);it.setLayout(resources.getDimensionPixelSize(R.dimen.panel_width),WindowManager.LayoutParams.WRAP_CONTENT)}
+edit.requestFocus()
+edit.post{(getSystemService(INPUT_METHOD_SERVICE)as InputMethodManager).showSoftInput(edit,InputMethodManager.SHOW_IMPLICIT)}
 }
 
 private fun clearPanel(){
@@ -496,14 +492,14 @@ val current=browserCurrent?:root
 val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(8),dp(12),dp(12));background=bg("#FFFFFF",16,null)}
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val back=smallButton("←"){if(current.absolutePath==root.absolutePath)showPanel()else{browserCurrent=current.parentFile?:root;renderBrowser()}}
-val rootBtn=TextView(this).apply{text=current.absolutePath;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),0,dp(4),0);setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray);setOnClickListener{showRootList()};setOnLongClickListener{copyText("BridgeFS路径",current.absolutePath);toast("已复制路径");true}}
-val copy=smallButton("复制当前层"){copyText("BridgeFS目录",browserListing(current));toast("已复制当前层")}.apply{textSize=11f}
-top.addView(back,LinearLayout.LayoutParams(dp(56),dp(40)));top.addView(rootBtn,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(6)});top.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
+val rootBtn=TextView(this).apply{text=current.absolutePath;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),0,dp(4),0);setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=RippleDrawable(ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_gray)),GradientDrawable().apply{setColor(resources.getColor(R.color.bridgefs_surface));cornerRadius=resources.getDimension(R.dimen.directory_row_corner_radius)},null);setOnClickListener{showRootList()};setOnLongClickListener{copyText("BridgeFS路径",current.absolutePath);toast("已复制路径");true}}
+val copy=smallButton("复制"){copyText("BridgeFS目录",browserListing(current));toast("已复制当前层")}.apply{textSize=11f;setSingleLine(true);maxLines=1;contentDescription="复制当前层"}
+top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)));top.addView(rootBtn,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
 box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
 val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
 val children=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty()
 val first=children.take(50)
-first.forEach{f->val row=TextView(this).apply{text=f.name;textSize=14f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(8),dp(4),dp(8),dp(4));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;if(f.isDirectory){setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6)};setTextColor(resources.getColor(R.color.bridgefs_text_primary));background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray);setOnClickListener{if(f.isDirectory){browserCurrent=f;renderBrowser()}else{copyText("BridgeFS路径",f.relativeTo(root).path);toast("已复制相对路径")}}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)))}
+first.forEach{f->val row=TextView(this).apply{text=f.name;textSize=14f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(8),dp(4),dp(8),dp(4));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;if(f.isDirectory){setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6)};setTextColor(resources.getColor(R.color.bridgefs_text_primary));background=rippleBg(resourceBg(R.color.bridgefs_surface,R.dimen.directory_row_corner_radius),R.color.bridgefs_ripple_gray);setOnClickListener{if(f.isDirectory){browserCurrent=f;renderBrowser()}else{copyText("BridgeFS路径",f.relativeTo(root).path);toast("已复制相对路径")}}};list.addView(row,LinearLayout.LayoutParams(-1,dp(48)))}
 if(children.size>50)list.addView(TextView(this).apply{text="…等 "+(children.size-50)+" 项";textSize=13f;setTextColor(Color.GRAY);setPadding(dp(8),dp(8),dp(8),dp(8))})
 box.addView(ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list)},LinearLayout.LayoutParams(-1,dp(360)))
 addPanelFooter(box);panel=box
@@ -524,7 +520,8 @@ private fun browserListing(current:File):String{val entries=current.listFiles()?
 private fun showRootList(){
 try{
 clearPanel();log("UI","showRootList")
-val roots=(getSharedPreferences("bridgefs",0).getStringSet("root_paths",emptySet<String>())?:emptySet<String>()).toList()
+val prefs=getSharedPreferences("bridgefs",0)
+val roots=((prefs.getStringSet("root_paths",emptySet<String>())?:emptySet<String>())+listOfNotNull(prefs.getString("root_path",null))).distinct().toList()
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12))
 background=bg("#FFFFFF",16,"#E0E0E0");elevation=dp(8).toFloat()
@@ -535,32 +532,31 @@ val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){
 top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)))
 box.addView(top)
 val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-roots.forEachIndexed{index,path->
+roots.forEach{path->
 val row=LinearLayout(this).apply{
 orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
-setPadding(dp(8),dp(6),dp(8),dp(6))
+setPadding(dimen(R.dimen.directory_row_padding),0,dimen(R.dimen.directory_row_padding),0)
 background=rippleBg(bg("#FFFFFF",8,null),R.color.bridgefs_ripple_gray)
 val icon=ImageView(this@FileBridgeService).apply{setImageResource(R.drawable.ic_folder)}
-addView(icon,LinearLayout.LayoutParams(dp(20),dp(20)).also{it.marginEnd=dp(8)})
-val labels=LinearLayout(this@FileBridgeService).apply{orientation=LinearLayout.VERTICAL}
-labels.addView(TextView(this@FileBridgeService).apply{
-text=File(path).name.ifBlank{path};textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END
-},LinearLayout.LayoutParams(-1,-2))
-labels.addView(TextView(this@FileBridgeService).apply{
-text=path;textSize=11f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));setSingleLine(false)
-},LinearLayout.LayoutParams(-1,-2))
-addView(labels,LinearLayout.LayoutParams(0,-2,1f))
+addView(icon,LinearLayout.LayoutParams(dimen(R.dimen.directory_icon_size),dimen(R.dimen.directory_icon_size)).also{it.marginEnd=dimen(R.dimen.directory_icon_gap)})
+val name=TextView(this@FileBridgeService).apply{
+text=File(path).name.ifBlank{path};textSize=resources.getDimension(R.dimen.directory_item_text_size)/resources.displayMetrics.scaledDensity
+setTextColor(resources.getColor(R.color.bridgefs_text_primary));setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER_VERTICAL
+}
+addView(name,LinearLayout.LayoutParams(0,-1,1f))
 setOnClickListener{
 root=File(path)
 getSharedPreferences("bridgefs",0).edit().putString("root_path",root.absolutePath).apply()
 clearPanel();browserCurrent=root;renderBrowser()
 }
 }
-row.minimumHeight=dp(56)
-list.addView(row,LinearLayout.LayoutParams(-1,-2).also{it.topMargin=dp(4)})
+list.addView(row,LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_row_height)))
 }
-if(roots.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));setPadding(dp(10),dp(12),dp(10),dp(12))})
-box.addView(ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list)},LinearLayout.LayoutParams(-1,0,1f))
+if(roots.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL;setPadding(dimen(R.dimen.directory_row_padding),0,dimen(R.dimen.directory_row_padding),0)},LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_row_height)))
+val rowHeight=dimen(R.dimen.directory_row_height)
+val listHeight=(rowHeight*roots.size.coerceAtLeast(1)).coerceAtMost(dimen(R.dimen.directory_list_max_height))
+val scroller=ScrollView(this).apply{isVerticalScrollBarEnabled=true;scrollBarSize=dp(2);addView(list,ViewGroup.LayoutParams(-1,-2))}
+box.addView(scroller,LinearLayout.LayoutParams(-1,listHeight))
 addPanelFooter(box);panel=box
 val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
 val screenWidth=resources.displayMetrics.widthPixels
@@ -572,7 +568,9 @@ attachPanelToOverlay(box,targetX,dp(24))
 private fun runLogFile():File{val dir=File("/sdcard/BridgeFS/logs");return if(dir.exists()||dir.mkdirs())File(dir,"run.log")else File(getExternalFilesDir(null),"logs").apply{mkdirs()}.resolve("run.log")}
 private fun log(module:String,message:String){if(!getSharedPreferences("bridgefs",0).getBoolean("run_log_enabled",true))return;val line=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date())+" ["+module+"] "+message.replace("\n","\\n")+"\n";runCatching{val f=runLogFile();val old=if(f.isFile)f.readLines().takeLast(499)else emptyList();f.parentFile?.mkdirs();f.writeText((old+line).joinToString(""))}.onFailure{android.util.Log.e("BridgeFS","run log failed",it)}}
 private fun rippleBg(content:GradientDrawable,colorRes:Int)=RippleDrawable(ColorStateList.valueOf(resources.getColor(colorRes)),content,null)
+private fun resourceBg(fillRes:Int,radiusRes:Int,strokeRes:Int?=null)=GradientDrawable().apply{setColor(resources.getColor(fillRes));cornerRadius=resources.getDimension(radiusRes);if(strokeRes!=null)setStroke(dp(1),resources.getColor(strokeRes))}
 private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setColor(Color.parseColor(fill));cornerRadius=dp(r).toFloat();if(stroke!=null)setStroke(dp(1),Color.parseColor(stroke))}
+private fun dimen(id:Int)=resources.getDimensionPixelSize(id)
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
 override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
