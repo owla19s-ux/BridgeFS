@@ -40,7 +40,7 @@ jobs:
           print('keystore bytes:', len(data))
           PY
           sha256sum ~/.android/debug.keystore
-      - run: gradle :app:assembleDebug
+      - run: gradle :app:testDebugUnitTest :app:assembleDebug
         working-directory: BridgeFS-0.1
       - uses: actions/upload-artifact@v4
         with:
