@@ -4,6 +4,13 @@ on:
     paths:
       - 'BridgeFS-0.1/**'
       - '.github/workflows/build.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - first-batch-test
+    paths:
+      - 'BridgeFS-0.1/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 jobs:
   build:
@@ -37,11 +44,17 @@ jobs:
           data = base64.b64decode(s)
           with open(os.path.expanduser('~/.android/debug.keystore'), 'wb') as f:
               f.write(data)
-          print('keystore bytes:', len(data))
           PY
-          sha256sum ~/.android/debug.keystore
-      - run: gradle :app:assembleDebug
+      - run: gradle :app:testDebugUnitTest :app:assembleDebug
         working-directory: BridgeFS-0.1
+      - name: Verify APK signer certificate
+        working-directory: BridgeFS-0.1
+        run: |
+          set -euo pipefail
+          apk_path="$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)"
+          actual="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk_path" | awk -F': ' '/Signer #1 certificate SHA-256 digest:/{print $2}')"
+          echo "APK signer SHA-256: $actual"
+          test "$actual" = "e29b2fbf709570662a209fc0b88544a1cdf7a42a53cc4b9b5559f5fdf52bfd69"
       - uses: actions/upload-artifact@v4
         with:
           name: BridgeFS-v0.1.2
