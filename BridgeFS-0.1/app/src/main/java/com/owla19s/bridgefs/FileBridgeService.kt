@@ -366,13 +366,15 @@ clearPanel();browserCurrent=root;renderBrowser()
 list.addView(row,LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)).also{if(index>0)it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 }
 if(rs.isEmpty())list.addView(TextView(this).apply{text="暂无已保存的根目录";textSize=d(R.dimen.bridgefs_body_text_size)/resources.displayMetrics.scaledDensity;setTextColor(color(R.color.bridgefs_text_secondary));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(R.dimen.bridgefs_list_row_height)))
-val screenLimit=(resources.displayMetrics.heightPixels*.55f).toInt()-d(R.dimen.bridgefs_home_root_list_chrome_height)
+val maxPanelHeight=(resources.displayMetrics.heightPixels*.55f).toInt()
+val screenLimit=maxPanelHeight-d(R.dimen.bridgefs_home_root_list_chrome_height)
 val rowsHeight=if(rs.isEmpty())d(R.dimen.bridgefs_list_row_height) else rs.size*d(R.dimen.bridgefs_list_row_height)+(rs.size-1)*d(R.dimen.bridgefs_section_spacing)
 val viewport=minOf(rowsHeight,screenLimit.coerceAtLeast(d(R.dimen.bridgefs_list_row_height)))
 box.addView(ScrollView(this).apply{isFillViewport=true;addView(list)},LinearLayout.LayoutParams(-1,viewport).also{it.topMargin=d(R.dimen.bridgefs_section_spacing)})
 panel=box
 val width=panelWidthPx()
-panelLpRef=panelLp(width,WindowManager.LayoutParams.WRAP_CONTENT)
+val parentHeight=minOf(maxPanelHeight,d(R.dimen.bridgefs_home_root_list_chrome_height)+viewport)
+panelLpRef=panelLp(width,parentHeight)
 panelLpRef.gravity=Gravity.TOP or Gravity.LEFT
 panelLpRef.x=panelX(width);panelLpRef.y=ballLp.y
 wm.addView(box,panelLpRef)
