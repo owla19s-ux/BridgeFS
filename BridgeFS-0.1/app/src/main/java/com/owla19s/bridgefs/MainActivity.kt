@@ -19,6 +19,7 @@ import android.util.TypedValue
 import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.constraintlayout.widget.ConstraintLayout
 import android.widget.*
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -33,6 +34,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
+        window.statusBarColor = resources.getColor(R.color.bridgefs_surface)
+        window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         render()
         autoStartIfNeeded(true)
     }
@@ -76,14 +79,14 @@ class MainActivity : Activity() {
         roots().any { normalizedPath(it).equals(normalizedPath(path), ignoreCase = true) }
 
     private fun isProtectedWorkspace(path: String): Boolean {
-        val candidate = normalizedPath(path)
+        val candidate = normalizedPath(path).replace('\\', '/').lowercase(Locale.ROOT)
         val storageRoot = normalizedPath(Environment.getExternalStorageDirectory().absolutePath)
-        if (candidate.equals(storageRoot, ignoreCase = true)) return true
+            .replace('\\', '/').lowercase(Locale.ROOT)
+        if (candidate == storageRoot) return true
         val segments = candidate.split('/').filter { it.isNotEmpty() }
-        return segments.zipWithNext().any { (parent, child) ->
-            parent.equals("Android", ignoreCase = true) &&
-                (child.equals("data", true) || child.equals("obb", true) || child.equals("media", true))
-        }
+        // Block Android itself as well as its protected data/obb/media trees.
+        return segments.any { it == "android" } ||
+            listOf("/android/data", "/android/obb", "/android/media").any { candidate.contains(it) }
     }
 
     private fun addRoot(path: String, onFinished: () -> Unit = {}) {
@@ -339,7 +342,7 @@ private inner class DirectoryAdapter(
         private val onNavigate: ((String) -> Unit)? = null
     ) : RecyclerView.Adapter<DirectoryAdapter.Holder>() {
         inner class Holder(
-            val row: LinearLayout,
+            val row: ConstraintLayout,
             val icon: ImageView,
             val name: TextView,
             val check: CheckBox,
@@ -347,33 +350,62 @@ private inner class DirectoryAdapter(
         ) : RecyclerView.ViewHolder(row)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-            val row = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(resources.getDimensionPixelSize(R.dimen.directory_row_padding), 0, resources.getDimensionPixelSize(R.dimen.directory_row_padding), 0)
+            val row = ConstraintLayout(this@MainActivity).apply {
+                layoutParams = RecyclerView.LayoutParams(-1, dimen(R.dimen.directory_row_height))
                 background = rowRipple(resources.getColor(R.color.bridgefs_surface))
             }
-            val icon = ImageView(this@MainActivity).apply { setImageResource(R.drawable.ic_folder) }
+            val icon = ImageView(this@MainActivity).apply {
+                id = View.generateViewId()
+                setImageResource(R.drawable.ic_folder)
+            }
             val name = TextView(this@MainActivity).apply {
+                id = View.generateViewId()
                 setTextSizeFromDimen(this, R.dimen.directory_item_text_size)
                 setSingleLine(true)
                 ellipsize = android.text.TextUtils.TruncateAt.END
             }
             val check = CheckBox(this@MainActivity).apply {
+                id = View.generateViewId()
                 isClickable = false
                 isFocusable = false
                 buttonTintList = ColorStateList.valueOf(resources.getColor(R.color.bridgefs_accent))
             }
             val arrow = TextView(this@MainActivity).apply {
+                id = View.generateViewId()
                 text = "›"
                 setTextSizeFromDimen(this, R.dimen.directory_arrow_size)
                 gravity = Gravity.CENTER
                 setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
             }
-            row.addView(icon, LinearLayout.LayoutParams(dimen(R.dimen.directory_icon_size), dimen(R.dimen.directory_icon_size)).also { it.marginEnd = dimen(R.dimen.directory_icon_gap) })
-            row.addView(name, LinearLayout.LayoutParams(0, -1, 1f))
-            row.addView(check, LinearLayout.LayoutParams(dimen(R.dimen.directory_check_width), dimen(R.dimen.directory_row_height)))
-            if (onNavigate != null) row.addView(arrow, LinearLayout.LayoutParams(dimen(R.dimen.directory_arrow_width), dimen(R.dimen.directory_row_height)))
+
+            row.addView(icon, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_icon_size), dimen(R.dimen.directory_icon_size)).apply {
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                marginStart = dimen(R.dimen.directory_row_padding)
+            })
+            row.addView(check, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_check_width), dimen(R.dimen.directory_row_height)).apply {
+                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                marginEnd = dimen(R.dimen.directory_row_padding)
+            })
+            if (onNavigate != null) {
+                row.addView(arrow, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_arrow_width), dimen(R.dimen.directory_row_height)).apply {
+                    endToStart = check.id
+                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                    bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                    marginEnd = dp(4)
+                })
+            }
+            row.addView(name, ConstraintLayout.LayoutParams(0, -1).apply {
+                startToEnd = icon.id
+                endToStart = if (onNavigate != null) arrow.id else check.id
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                marginStart = dimen(R.dimen.directory_icon_gap)
+                marginEnd = dimen(R.dimen.directory_icon_gap)
+            })
             return Holder(row, icon, name, check, arrow)
         }
 

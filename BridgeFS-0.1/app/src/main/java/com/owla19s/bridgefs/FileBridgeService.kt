@@ -51,9 +51,9 @@ wm=getSystemService(WINDOW_SERVICE)as WindowManager
 log("Service","onCreate");showBall()
 }
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
-private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,-3)
-private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,-3)
-private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,-3)
+private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,-3)
+private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,-3)
+private fun mainPanelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,-3)
 
 private fun attachPanelToOverlay(box:LinearLayout,x:Int,y:Int){
 try{
@@ -174,7 +174,7 @@ isFocusable=false;isFocusableInTouchMode=false;showSoftInputOnFocus=false
 setOnClickListener{showCommandInputDialog(this)}
 }
 commandInput=input
-clipboardCallback={text->handler.post{commandInput?.setText(text);commandInput?.setSelection(commandInput?.text?.length?:0)}}
+clipboardCallback={text->handler.post{commandInput?.let{it.clearFocus();it.setText(text)}}}
 val inputFrame=FrameLayout(this).apply{
 addView(input,FrameLayout.LayoutParams(-1,-1))
 addView(TextView(this@FileBridgeService).apply{
@@ -597,7 +597,7 @@ val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
 val back=smallButton("←"){if(current.absolutePath==root.absolutePath)showPanel()else{browserCurrent=current.parentFile?:root;renderBrowser()}}
 val rootBtn=TextView(this).apply{text=current.absolutePath;textSize=13f;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),0,dp(4),0);setSingleLine(true);ellipsize=android.text.TextUtils.TruncateAt.END;setTextColor(resources.getColor(R.color.bridgefs_text_primary));setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_folder,0,0,0);compoundDrawablePadding=dp(6);background=RippleDrawable(ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_gray)),GradientDrawable().apply{setColor(resources.getColor(R.color.bridgefs_surface));cornerRadius=resources.getDimension(R.dimen.directory_row_corner_radius)},null);setOnClickListener{showRootList()};setOnLongClickListener{copyText("BridgeFS路径",current.absolutePath);toast("已复制路径");true}}
-val copy=smallButton("复制"){copyText("BridgeFS目录",browserListing(current));toast("已复制当前层")}.apply{textSize=11f;setSingleLine(true);maxLines=1;contentDescription="复制当前层"}
+val copy=smallButton("复制"){copyText("BridgeFS路径",current.absolutePath);toast("已复制："+current.absolutePath)}.apply{textSize=11f;setSingleLine(true);maxLines=1;contentDescription="复制当前层"}
 top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)));top.addView(rootBtn,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
 box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
 val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
@@ -623,10 +623,12 @@ isRenderingBrowser=false
 private fun browserListing(current:File):String{val entries=current.listFiles()?.sortedWith(compareBy<File>{!it.isDirectory}.thenBy{it.name.lowercase(Locale.getDefault())}).orEmpty();val first=entries.take(50);val files=entries.count{!it.isDirectory};val dirs=entries.count{it.isDirectory};return current.relativeToOrSelf(root).path+"/\n含 "+files+" 个文件、"+dirs+" 个文件夹：\n"+first.joinToString("\n"){f->"  "+(if(f.isDirectory)"文件夹" else "文件")+" "+f.name}+(if(entries.size>50)"\n…等 "+(entries.size-50)+" 项" else "")}
 private fun isProtectedWorkspace(path:String):Boolean{
 val candidate=runCatching{File(path).canonicalPath.trimEnd('/')}.getOrElse{File(path).absolutePath.trimEnd('/')}
+    .replace('\\','/').lowercase(Locale.ROOT)
 val storageRoot=runCatching{Environment.getExternalStorageDirectory().canonicalPath.trimEnd('/')}.getOrElse{Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')}
-if(candidate.equals(storageRoot,true))return true
+    .replace('\\','/').lowercase(Locale.ROOT)
+if(candidate==storageRoot)return true
 val segments=candidate.split('/').filter{it.isNotEmpty()}
-return segments.zipWithNext().any{(parent,child)->parent.equals("Android",true)&&(child.equals("data",true)||child.equals("obb",true)||child.equals("media",true))}
+return segments.any{it=="android"}||listOf("/android/data","/android/obb","/android/media").any{candidate.contains(it)}
 }
 private fun activateWorkspace(path:String,onConfirm:()->Unit){
 if(isProtectedWorkspace(path)){toast("此目录属于系统受保护区域，无法作为工作区");return}
