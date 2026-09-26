@@ -139,19 +139,22 @@ class MainActivity : Activity() {
         val accessRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val accessStatus = TextView(this).apply {
             text = if (Environment.isExternalStorageManager()) "所有文件访问 ✅" else "所有文件访问 ❌"
-            textSize = 13f
-            setTextColor(Color.DKGRAY)
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+            setTextColor(color(R.color.bridgefs_text_primary))
             gravity = Gravity.CENTER
             setOnClickListener {
                 if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
             }
         }
         val addDir = Button(this).apply {
-            text = "+ 添加目录"
-            textSize = 13f
+            text = "+"
+            contentDescription = "添加目录"
+            textSize = d(R.dimen.bridgefs_title_text_size) / resources.displayMetrics.scaledDensity
             minWidth = 0
             minimumWidth = 0
             setPadding(0, 0, 0, 0)
+            setTextColor(color(R.color.bridgefs_text_primary))
+            background = rounded(R.color.bridgefs_button_background, R.dimen.bridgefs_button_corner_radius)
             setOnClickListener {
                 if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
                 else showDirectoryPicker()
@@ -172,16 +175,19 @@ class MainActivity : Activity() {
         }
         val autoSwitch = Switch(this).apply {
             text = "自动显示"
-            textSize = 12f
+            textSize = d(R.dimen.bridgefs_aux_text_size) / resources.displayMetrics.scaledDensity
             isChecked = prefs.getBoolean("auto_show_overlay", true)
             setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("auto_show_overlay", checked).apply() }
         }
         val open = Button(this).apply {
-            text = "打开悬浮窗"
-            textSize = 12f
+            text = "打开"
+            contentDescription = "打开悬浮窗"
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
             minWidth = 0
             minimumWidth = 0
             setPadding(0, 0, 0, 0)
+            setTextColor(color(R.color.bridgefs_text_primary))
+            background = rounded(R.color.bridgefs_button_background, R.dimen.bridgefs_button_corner_radius)
             setOnClickListener { startOverlayManually() }
         }
         overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
@@ -192,8 +198,8 @@ class MainActivity : Activity() {
         val logRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         logRow.addView(TextView(this).apply {
             text = "运行日志 / 崩溃日志"
-            textSize = 13f
-            setTextColor(Color.DKGRAY)
+            textSize = d(R.dimen.bridgefs_body_text_size) / resources.displayMetrics.scaledDensity
+            setTextColor(color(R.color.bridgefs_text_primary))
             gravity = Gravity.CENTER_VERTICAL
         }, LinearLayout.LayoutParams(0, d(R.dimen.bridgefs_button_height), 1f))
         val logSwitch = Switch(this).apply {
