@@ -650,9 +650,10 @@ orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(12),dp(12),dp(12))
 background=bg("#FFFFFF",16,"#E0E0E0");elevation=dp(8).toFloat()
 }
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+val back=smallButton("←"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","返回目录浏览失败："+e.message);toast("返回目录浏览失败："+e.message)}}
 val title=TextView(this).apply{text="选择根目录";textSize=15f;setTypeface(null,1);setTextColor(resources.getColor(R.color.bridgefs_text_primary))}
-val close=smallButton("×"){try{clearPanel();renderBrowser()}catch(e:Exception){log("Error","关闭根目录列表："+e.message);toast("关闭根目录列表失败："+e.message)}}
-top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f));top.addView(close,LinearLayout.LayoutParams(dp(56),dp(40)))
+top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)))
+top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(4)})
 box.addView(top)
 val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
 roots.forEach{path->
