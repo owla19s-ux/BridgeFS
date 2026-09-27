@@ -361,6 +361,7 @@ private inner class DirectoryAdapter(
             val name = TextView(this@MainActivity).apply {
                 id = View.generateViewId()
                 setTextSizeFromDimen(this, R.dimen.directory_item_text_size)
+                gravity = Gravity.CENTER_VERTICAL
                 setSingleLine(true)
                 ellipsize = android.text.TextUtils.TruncateAt.END
             }
@@ -398,7 +399,7 @@ private inner class DirectoryAdapter(
                     marginEnd = dp(4)
                 })
             }
-            row.addView(name, ConstraintLayout.LayoutParams(0, -1).apply {
+            row.addView(name, ConstraintLayout.LayoutParams(0, -2).apply {
                 startToEnd = icon.id
                 endToStart = if (onNavigate != null) arrow.id else check.id
                 topToTop = ConstraintLayout.LayoutParams.PARENT_ID
