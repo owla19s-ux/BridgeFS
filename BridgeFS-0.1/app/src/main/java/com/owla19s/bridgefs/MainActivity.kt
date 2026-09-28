@@ -3,51 +3,78 @@ package com.owla19s.bridgefs
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Color
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.view.MotionEvent
-import android.view.View
+import android.text.TextUtils
 import android.view.Gravity
-import android.view.WindowManager
-import android.util.TypedValue
+import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.constraintlayout.widget.ConstraintLayout
+import android.util.TypedValue
 import android.widget.*
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import java.util.Locale
 
 class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("bridgefs", 0) }
     private val rootsKey = "root_paths"
-    private var pickerPath = File("/storage/emulated/0")
+    private val onboardingKey = "first_run_completed"
+
+    private enum class Screen { MAIN, SETTINGS, HELP, ONBOARDING }
+
+    private var screen = Screen.MAIN
+    private var currentPath = File("/storage/emulated/0")
     private var firstResume = true
-    private var pickerMode = false
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         window.statusBarColor = resources.getColor(R.color.bridgefs_surface)
-        window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        window.decorView.systemUiVisibility =
+            window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+
+        screen = if (prefs.getBoolean(onboardingKey, false)) Screen.MAIN else Screen.ONBOARDING
         render()
-        autoStartIfNeeded(true)
+        autoStartIfNeeded(screen == Screen.MAIN)
     }
 
     override fun onResume() {
         super.onResume()
         if (!firstResume) {
-            render()
+            if (screen == Screen.MAIN || screen == Screen.SETTINGS) render()
             autoStartIfNeeded(false)
         }
         firstResume = false
+    }
+
+    override fun onBackPressed() {
+        when (screen) {
+            Screen.MAIN -> {
+                val storage = File("/storage/emulated/0")
+                if (normalizedPath(currentPath.absolutePath) != normalizedPath(storage.absolutePath)) {
+                    currentPath.parentFile?.let {
+                        currentPath = it
+                        render()
+                    }
+                } else {
+                    super.onBackPressed()
+                }
+            }
+            Screen.SETTINGS, Screen.HELP -> {
+                screen = Screen.MAIN
+                render()
+            }
+            Screen.ONBOARDING -> Unit
+        }
     }
 
     private fun roots(): MutableList<String> {
@@ -61,20 +88,9 @@ class MainActivity : Activity() {
         prefs.edit().putStringSet(rootsKey, list.toSet()).apply()
     }
 
-    private fun activate(path: String) {
-        prefs.edit().putString("root_path", path).apply()
-        render()
-    }
-
-    private fun candidateDirectories(): List<String> {
-        val paths = linkedSetOf<String>()
-        Environment.getExternalStorageDirectory().listFiles()?.filter { it.isDirectory }?.forEach { paths.add(it.absolutePath) }
-        roots().forEach { paths.add(it) }
-        return paths.sortedWith(compareBy<String> { File(it).name.lowercase(Locale.getDefault()) }.thenBy { it })
-    }
-
     private fun normalizedPath(path: String): String =
-        runCatching { File(path).canonicalPath.trimEnd('/') }.getOrElse { File(path).absolutePath.trimEnd('/') }
+        runCatching { File(path).canonicalPath.trimEnd('/') }
+            .getOrElse { File(path).absolutePath.trimEnd('/') }
 
     private fun isRootAdded(path: String): Boolean =
         roots().any { normalizedPath(it).equals(normalizedPath(path), ignoreCase = true) }
@@ -85,7 +101,6 @@ class MainActivity : Activity() {
             .replace('\\', '/').lowercase(Locale.ROOT)
         if (candidate == storageRoot) return true
         val segments = candidate.split('/').filter { it.isNotEmpty() }
-        // Block Android itself as well as its protected data/obb/media trees.
         return segments.any { it == "android" } ||
             listOf("/android/data", "/android/obb", "/android/media").any { candidate.contains(it) }
     }
@@ -96,6 +111,7 @@ class MainActivity : Activity() {
             Toast.makeText(this, "此目录属于系统受保护区域，无法作为工作区", Toast.LENGTH_LONG).show()
             return
         }
+
         val confirmAndAdd = {
             val list = roots()
             if (list.none { normalizedPath(it).equals(normalized, ignoreCase = true) }) {
@@ -105,6 +121,7 @@ class MainActivity : Activity() {
             prefs.edit().putString("root_path", normalized).apply()
             onFinished()
         }
+
         if (File(normalized).name.equals("Download", ignoreCase = true)) {
             AlertDialog.Builder(this)
                 .setTitle("请确认选择下载目录")
@@ -117,344 +134,376 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun toggleRoot(path: String, onFinished: () -> Unit = {}) {
+    private fun toggleRoot(path: String) {
         val normalized = normalizedPath(path)
         val list = roots()
         val existing = list.firstOrNull { normalizedPath(it).equals(normalized, ignoreCase = true) }
+
         if (existing != null) {
             list.remove(existing)
             saveRoots(list)
-            if (normalizedPath(prefs.getString("root_path", "").orEmpty()).equals(normalized, ignoreCase = true)) {
+            if (normalizedPath(prefs.getString("root_path", "").orEmpty())
+                    .equals(normalized, ignoreCase = true)
+            ) {
                 val editor = prefs.edit()
                 val next = list.firstOrNull()
                 if (next == null) editor.remove("root_path") else editor.putString("root_path", next)
                 editor.apply()
             }
-            onFinished()
         } else {
-            addRoot(normalized, onFinished)
+            addRoot(normalized)
         }
-    }
-
-    private fun setTextSizeFromDimen(view: TextView, dimen: Int) {
-        view.setTextSize(TypedValue.COMPLEX_UNIT_PX, resources.getDimension(dimen))
     }
 
     private fun autoStartIfNeeded(showPermissionHint: Boolean) {
         if (!prefs.getBoolean("auto_show_overlay", true) || FileBridgeService.running) return
         if (!Settings.canDrawOverlays(this)) {
-            if (showPermissionHint) Toast.makeText(this, "请先在系统设置开启悬浮窗权限；ColorOS 后台自启动也需允许。", Toast.LENGTH_LONG).show()
+            if (showPermissionHint) {
+                Toast.makeText(this, "请先在系统设置开启悬浮窗权限；ColorOS 后台自启动也需允许。", Toast.LENGTH_LONG).show()
+            }
             return
         }
         val workspace = prefs.getString("root_path", null)
         if (workspace.isNullOrBlank() || !File(workspace).isDirectory || isProtectedWorkspace(workspace)) {
-            if (showPermissionHint) Toast.makeText(this, "请先添加并激活项目目录，再自动显示悬浮窗。", Toast.LENGTH_LONG).show()
+            if (showPermissionHint) {
+                Toast.makeText(this, "请先选择并激活项目目录，再自动显示悬浮窗。", Toast.LENGTH_LONG).show()
+            }
             return
         }
-        runCatching { ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java)) }
-            .onFailure { Toast.makeText(this, "自动显示悬浮窗失败，请检查系统的悬浮窗/自启动限制。", Toast.LENGTH_LONG).show() }
+        runCatching {
+            ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java))
+        }.onFailure {
+            Toast.makeText(this, "自动显示悬浮窗失败，请检查系统的悬浮窗/自启动限制。", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun render() {
-        if (pickerMode) {
-            renderPickerPage()
-            return
+        when (screen) {
+            Screen.MAIN -> renderMainPage()
+            Screen.SETTINGS -> renderSettingsPage()
+            Screen.HELP -> renderHelpPage()
+            Screen.ONBOARDING -> renderOnboardingPage()
         }
-        renderMainPage()
     }
 
-    private fun renderMainPage() {
+    private fun basePage(content: LinearLayout, withBottom: Boolean = true): ScrollView {
         val page = ScrollView(this).apply { isFillViewport = true }
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding))
-        }
         ViewCompat.setOnApplyWindowInsetsListener(page) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(0, bars.top, 0, bars.bottom)
             insets
         }
+
+        val outer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(8))
+        }
+        outer.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        if (withBottom) {
+            val nav = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val home = pageButton("主页") {
+                screen = Screen.MAIN
+                currentPath = File("/storage/emulated/0")
+                render()
+            }
+            val back = pageButton("返回") { onBackPressedDispatcherAction() }
+            val storage = File("/storage/emulated/0")
+            val canBack = screen != Screen.MAIN ||
+                normalizedPath(currentPath.absolutePath) != normalizedPath(storage.absolutePath)
+            back.isEnabled = canBack
+            back.alpha = if (canBack) 1f else 0.45f
+
+            nav.addView(home, LinearLayout.LayoutParams(0, dp(42), 1f))
+            nav.addView(back, LinearLayout.LayoutParams(0, dp(42), 1f).also { it.marginStart = dp(8) })
+            outer.addView(nav, LinearLayout.LayoutParams(-1, dp(42)).also { it.topMargin = dp(8) })
+        }
+
+        page.addView(outer)
+        return page
+    }
+
+    private fun onBackPressedDispatcherAction() {
+        when (screen) {
+            Screen.MAIN -> {
+                val storage = File("/storage/emulated/0")
+                if (normalizedPath(currentPath.absolutePath) != normalizedPath(storage.absolutePath)) {
+                    currentPath.parentFile?.let { currentPath = it; render() }
+                }
+            }
+            Screen.SETTINGS, Screen.HELP -> {
+                screen = Screen.MAIN
+                render()
+            }
+            Screen.ONBOARDING -> Unit
+        }
+    }
+
+    private fun renderMainPage() {
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         titleRow.addView(TextView(this).apply {
             text = "BridgeFS"
-            setSingleLine(true)
-            maxLines = 1
             textSize = 24f
             setTextColor(resources.getColor(R.color.bridgefs_text_primary))
             setTypeface(null, 1)
-        }, LinearLayout.LayoutParams(-2, dp(48)))
-        titleRow.addView(TextView(this).apply {
-            text = "v0.1.2"
-            setSingleLine(true)
-            maxLines = 1
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(-2, dp(48)).also { it.marginStart = dp(6) })
-        box.addView(titleRow)
-
-        box.addView(TextView(this).apply {
-            text = "目录"
-            textSize = 15f
-            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
-        }, LinearLayout.LayoutParams(-1, dp(32)))
-
-        val paths = candidateDirectories()
-        val directoryList = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            isNestedScrollingEnabled = false
-            setBackgroundColor(resources.getColor(R.color.bridgefs_surface))
-            clipToPadding = false
-        }
-        directoryList.adapter = DirectoryAdapter(paths, onToggle = { path -> toggleRoot(path) { directoryList.adapter?.notifyDataSetChanged() } })
-        val rowHeight = resources.getDimensionPixelSize(R.dimen.directory_row_height)
-        val listHeight = (rowHeight * paths.size.coerceAtLeast(1)).coerceAtMost(resources.getDimensionPixelSize(R.dimen.main_directory_list_height))
-        box.addView(directoryList, LinearLayout.LayoutParams(-1, listHeight).also { it.topMargin = dp(4) })
-
-        val accessRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val accessStatus = TextView(this).apply {
-            text = if (Environment.isExternalStorageManager()) "所有文件访问 ✓" else "所有文件访问 ×"
-            textSize = 13f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setOnClickListener {
-                if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-            }
-        }
-        val addDir = mainButton("+ 添加目录") {
-            if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-            else showDirectoryPicker()
-        }
-        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, dp(40), 1f))
-        accessRow.addView(addDir, LinearLayout.LayoutParams(dp(116), dp(36)).also { it.marginStart = dp(4) })
-        box.addView(accessRow, LinearLayout.LayoutParams(-1, dp(40)).also { it.topMargin = dp(4) })
-
-        val overlayRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val overlayStatus = TextView(this).apply {
-            text = if (Settings.canDrawOverlays(this@MainActivity)) "悬浮窗权限 ✓" else "悬浮窗权限 ×"
-            textSize = 13f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setOnClickListener {
-                if (!Settings.canDrawOverlays(this@MainActivity)) startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            }
-        }
-        val autoSwitch = Switch(this).apply {
-            text = "自动显示"
-            textSize = 12f
-            isChecked = prefs.getBoolean("auto_show_overlay", true)
-            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("auto_show_overlay", checked).apply() }
-        }
-        val open = mainButton("打开悬浮窗") { startOverlayManually() }
-        overlayRow.addView(overlayStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
-        overlayRow.addView(autoSwitch, LinearLayout.LayoutParams(0, dp(44), 1f))
-        overlayRow.addView(open, LinearLayout.LayoutParams(0, dp(40), 1f))
-        box.addView(overlayRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
-
-        val logRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        logRow.addView(TextView(this).apply {
-            text = "运行日志 / 崩溃日志"
-            textSize = 13f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        val logSwitch = Switch(this).apply {
-            isChecked = prefs.getBoolean("run_log_enabled", true)
-            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean("run_log_enabled", checked).apply() }
-        }
-        logRow.addView(logSwitch, LinearLayout.LayoutParams(dp(64), dp(44)))
-        box.addView(logRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
-
-        box.addView(TextView(this).apply {
-            text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            setPadding(0, dp(4), 0, dp(4))
-        }, LinearLayout.LayoutParams(-1, dp(52)).also { it.topMargin = dp(4) })
-
-        val repoLink = TextView(this).apply {
-            text = "仓库项目：github.com/owla19s-ux/BridgeFS"
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.bridgefs_accent))
-            setPadding(0, dp(2), 0, dp(4))
-            isClickable = true
-            setOnClickListener {
-                runCatching {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/owla19s-ux/BridgeFS")))
-                }.onFailure {
-                    Toast.makeText(this@MainActivity, "无法打开仓库地址", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-        box.addView(repoLink, LinearLayout.LayoutParams(-1, -2))
-        page.addView(box)
-        setContentView(page)
-    }
-
-    private fun startOverlayManually() {
-        if (!Settings.canDrawOverlays(this)) {
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            return
-        }
-        if (!Environment.isExternalStorageManager()) {
-            startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-            return
-        }
-        if (prefs.getString("root_path", null).isNullOrBlank()) {
-            Toast.makeText(this, "请先添加并激活项目目录", Toast.LENGTH_SHORT).show()
-            return
-        }
-        runCatching { ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java)) }
-            .onFailure { Toast.makeText(this, "启动悬浮窗失败，请检查系统权限。", Toast.LENGTH_SHORT).show() }
-    }
-
-    private fun showDirectoryPicker() {
-        pickerMode = true
-        pickerPath = File(prefs.getString("root_path", "/storage/emulated/0") ?: "/storage/emulated/0")
-        if (!pickerPath.isDirectory || isProtectedWorkspace(pickerPath.absolutePath)) pickerPath = File("/storage/emulated/0")
-        render()
-    }
-
-    private fun renderPickerPage() {
-        val page = ScrollView(this).apply { isFillViewport = true }
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding))
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(page) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, bars.top, 0, bars.bottom)
-            insets
-        }
-
-        val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        titleRow.addView(TextView(this).apply {
-            text = "添加目录"
-            textSize = 22f
-            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
-            setTypeface(null, 1)
-            gravity = Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        titleRow.addView(TextView(this).apply {
-            text = "选择工作区目录"
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            gravity = Gravity.CENTER_VERTICAL or Gravity.END
-        }, LinearLayout.LayoutParams(-2, dp(44)))
-        box.addView(titleRow)
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        titleRow.addView(pageButton("⚙ 设置") {
+            screen = Screen.SETTINGS
+            render()
+        }, LinearLayout.LayoutParams(dp(86), dp(40)))
+        content.addView(titleRow)
 
         val pathView = TextView(this).apply {
-            text = pickerPath.absolutePath
+            text = currentPath.absolutePath
             textSize = 13f
             maxLines = 2
-            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+            ellipsize = TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), 0, dp(8), 0)
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+            setPadding(dp(10), 0, dp(10), 0)
             background = rounded(resources.getColor(R.color.bridgefs_input_surface), dp(8))
         }
-        box.addView(pathView, LinearLayout.LayoutParams(-1, dp(40)).also { it.bottomMargin = dp(6) })
+        content.addView(pathView, LinearLayout.LayoutParams(-1, dp(42)).also { it.topMargin = dp(4) })
 
-        val dirs = pickerPath.listFiles()?.filter { it.isDirectory && !isProtectedWorkspace(it.absolutePath) }
-            ?.sortedBy { it.name.lowercase(Locale.getDefault()) }.orEmpty()
+        val hint = TextView(this).apply {
+            text = "勾选文件夹即可设为 BridgeFS 可管理的工作区；点击文件夹进入。"
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+        }
+        content.addView(hint, LinearLayout.LayoutParams(-1, dp(30)).also { it.topMargin = dp(4) })
+
+        val files = currentPath.listFiles()
+            ?.filter { !it.isHidden && (!it.isDirectory || !isProtectedWorkspace(it.absolutePath)) }
+            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase(Locale.getDefault()) })
+            .orEmpty()
+
         val recycler = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             isNestedScrollingEnabled = false
-            isVerticalScrollBarEnabled = true
-            scrollBarSize = dp(2)
-            adapter = DirectoryAdapter(dirs.map { it.absolutePath }, onToggle = {}, onNavigate = { path ->
-                pickerPath = File(path)
-                render()
-            }, selectionOnly = true)
+            clipToPadding = false
+            adapter = FileBrowserAdapter(files)
         }
-        val rowHeight = resources.getDimensionPixelSize(R.dimen.directory_row_height)
-        val listHeight = (rowHeight * dirs.size.coerceAtLeast(1)).coerceAtMost(resources.getDimensionPixelSize(R.dimen.picker_directory_list_height))
-        box.addView(recycler, LinearLayout.LayoutParams(-1, listHeight).also { it.bottomMargin = dp(8) })
+        val rowHeight = dp(48)
+        val listHeight = (rowHeight * files.size.coerceAtLeast(1)).coerceAtMost(dp(560))
+        content.addView(recycler, LinearLayout.LayoutParams(-1, listHeight).also { it.topMargin = dp(2) })
 
-        val actions = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
-        val back = mainButton("← 返回") {
-            pickerMode = false
+        if (files.isEmpty()) {
+            content.addView(TextView(this).apply {
+                text = "此目录为空"
+                textSize = 13f
+                setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(48)))
+        }
+
+        setContentView(basePage(content))
+    }
+
+    private fun renderSettingsPage() {
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(TextView(this).apply {
+            text = "设置"
+            textSize = 24f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            setTypeface(null, 1)
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        titleRow.addView(TextView(this).apply {
+            text = "BridgeFS"
+            textSize = 12f
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+        }, LinearLayout.LayoutParams(-2, dp(48)))
+        content.addView(titleRow)
+
+        addSectionTitle(content, "文件访问")
+        val selected = roots()
+        if (selected.isEmpty()) {
+            addInfo(content, "尚未选择工作区目录")
+        } else {
+            selected.forEach { path ->
+                val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+                row.addView(TextView(this).apply {
+                    text = path
+                    textSize = 13f
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.MIDDLE
+                    setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+                }, LinearLayout.LayoutParams(0, dp(48), 1f))
+                row.addView(pageButton("取消") {
+                    toggleRoot(path)
+                    render()
+                }, LinearLayout.LayoutParams(dp(64), dp(36)))
+                content.addView(row)
+            }
+        }
+        content.addView(pageButton("打开主页选择文件夹") {
+            screen = Screen.MAIN
+            render()
+        }, LinearLayout.LayoutParams(-1, dp(40)).also { it.topMargin = dp(6) })
+
+        addSectionTitle(content, "悬浮窗")
+        addSettingSwitch(content, "悬浮窗权限",
+            if (Settings.canDrawOverlays(this)) "已开启" else "未开启"
+        ) {
+            if (!Settings.canDrawOverlays(this)) {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
+        }
+        addSettingSwitch(content, "自动显示悬浮窗",
+            if (prefs.getBoolean("auto_show_overlay", true)) "开启" else "关闭"
+        ) {
+            prefs.edit().putBoolean("auto_show_overlay", !prefs.getBoolean("auto_show_overlay", true)).apply()
             render()
         }
-        val select = mainButton("选择此目录") {
-            addRoot(pickerPath.absolutePath) {
-                pickerMode = false
-                render()
-            }
-        }
-        actions.addView(back, LinearLayout.LayoutParams(0, dp(40), 1f))
-        actions.addView(select, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.marginStart = dp(8) })
-        box.addView(actions, LinearLayout.LayoutParams(-1, dp(40)))
+        addInfo(content, "ColorOS 还可能需要允许后台运行、自启动和锁定常驻。")
 
-        page.addView(box)
-        setContentView(page)
-    }
+        addSectionTitle(content, "帮助")
+        content.addView(pageButton("操作提示", {
+            screen = Screen.HELP
+            render()
+        }), LinearLayout.LayoutParams(-1, dp(42)))
+        content.addView(pageButton("指令帮助", {
+            screen = Screen.HELP
+            render()
+        }), LinearLayout.LayoutParams(-1, dp(42)).also { it.topMargin = dp(6) })
 
-    private inner class DirectoryDialog {
-        private val dialog = AlertDialog.Builder(this@MainActivity).create()
-        private val container = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(resources.getDimensionPixelSize(R.dimen.directory_dialog_padding), resources.getDimensionPixelSize(R.dimen.directory_dialog_padding), resources.getDimensionPixelSize(R.dimen.directory_dialog_padding), resources.getDimensionPixelSize(R.dimen.directory_dialog_padding))
-            background = rounded(resources.getColor(R.color.bridgefs_surface), dp(12))
-        }
-        private val pathView = TextView(this@MainActivity).apply {
-            textSize = 13f
-            maxLines = 2
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            setPadding(dp(8), dp(4), dp(8), dp(8))
-        }
-
-        fun show() {
-            dialog.setView(container)
-            renderPicker()
-            dialog.show()
-            dialog.window?.setLayout(resources.getDimensionPixelSize(R.dimen.panel_width), WindowManager.LayoutParams.WRAP_CONTENT)
-        }
-
-        private fun renderPicker() {
-            container.removeAllViews()
-            pathView.text = pickerPath.absolutePath
-            container.addView(pathView, LinearLayout.LayoutParams(-1, -2))
-            val dirs = pickerPath.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name.lowercase(Locale.getDefault()) }.orEmpty()
-            val maxHeight = resources.getDimensionPixelSize(R.dimen.directory_list_max_height)
-            val rowHeight = resources.getDimensionPixelSize(R.dimen.directory_row_height)
-            val listHeight = (rowHeight * dirs.size.coerceAtLeast(1)).coerceAtMost(maxHeight)
-            val recycler = RecyclerView(this@MainActivity).apply {
-                layoutManager = LinearLayoutManager(this@MainActivity)
-                isNestedScrollingEnabled = false
-                adapter = DirectoryAdapter(dirs.map { it.absolutePath },
-                    onToggle = { path -> toggleRoot(path) { renderPicker() } },
-                    onNavigate = { path -> pickerPath = File(path); renderPicker() })
-                isVerticalScrollBarEnabled = true
-                scrollBarSize = dp(2)
-            }
-            container.addView(recycler, LinearLayout.LayoutParams(-1, listHeight))
-            val actions = LinearLayout(this@MainActivity).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
-            val back = dialogButton("← 返回") {
-                pickerPath.parentFile?.takeIf { it.absolutePath.startsWith("/storage/emulated/0") && it.absolutePath != "/storage/emulated/0" }?.let { pickerPath = it; renderPicker() }
-            }
-            val select = dialogButton("选择") {
-                addRoot(pickerPath.absolutePath) {
-                    render()
-                    dialog.dismiss()
+        addSectionTitle(content, "关于")
+        addInfo(content, "BridgeFS v0.1.2\nAndroid 本地文件桥 / AI 协作工作台")
+        content.addView(TextView(this).apply {
+            text = "github.com/owla19s-ux/BridgeFS"
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.bridgefs_accent))
+            setPadding(0, dp(4), 0, dp(4))
+            setOnClickListener {
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/owla19s-ux/BridgeFS")))
                 }
             }
-            actions.addView(back, LinearLayout.LayoutParams(dimen(R.dimen.dialog_button_width), dimen(R.dimen.dialog_button_height)))
-            actions.addView(select, LinearLayout.LayoutParams(dimen(R.dimen.dialog_button_width), dimen(R.dimen.dialog_button_height)).also { it.marginStart = dp(8) })
-            container.addView(actions, LinearLayout.LayoutParams(-1, dimen(R.dimen.dialog_button_height)).also { it.topMargin = dp(8) })
-        }
+        })
+
+        setContentView(basePage(content))
     }
-private inner class DirectoryAdapter(
-        private val paths: List<String>,
-        private val onToggle: (String) -> Unit,
-        private val onNavigate: ((String) -> Unit)? = null,
-        private val selectionOnly: Boolean = false
-    ) : RecyclerView.Adapter<DirectoryAdapter.Holder>() {
+
+    private fun renderHelpPage() {
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(TextView(this).apply {
+            text = "操作提示 / 指令帮助"
+            textSize = 22f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            setTypeface(null, 1)
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        titleRow.addView(TextView(this).apply {
+            text = "设置"
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+        }, LinearLayout.LayoutParams(-2, dp(48)))
+        content.addView(titleRow)
+
+        addSectionTitle(content, "基本操作")
+        addInfo(content,
+            "1. 在主页浏览手机存储目录。\n" +
+            "2. 点击文件夹进入下一层。\n" +
+            "3. 勾选文件夹，将它加入 BridgeFS 可管理工作区。\n" +
+            "4. 在设置中开启悬浮窗权限，并按系统要求允许后台运行。\n" +
+            "5. 从 AI 对话复制 BridgeFS 指令，再通过悬浮窗执行。"
+        )
+
+        addSectionTitle(content, "指令")
+        addInfo(content,
+            "[list]\n列出当前工作区文件和目录。\n\n" +
+            "[read: 文件名]\n读取指定文件内容。\n\n" +
+            "[write: 文件名] 内容 [/write]\n创建或覆盖指定文件。\n\n" +
+            "[mkdir: 文件夹名]\n创建文件夹。"
+        )
+
+        addSectionTitle(content, "注意")
+        addInfo(content, "BridgeFS 只会把你勾选的工作区作为可管理目录。涉及系统受保护区域的目录不会作为工作区。")
+        setContentView(basePage(content))
+    }
+
+    private fun renderOnboardingPage() {
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        content.addView(TextView(this).apply {
+            text = "欢迎使用 BridgeFS"
+            textSize = 26f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            setTypeface(null, 1)
+        }, LinearLayout.LayoutParams(-1, dp(52)))
+
+        addInfo(content, "第一次使用只需要完成下面几步。之后可在「设置 → 操作提示」再次查看。")
+
+        addSectionTitle(content, "1. 选择工作区")
+        addInfo(content, "进入主页，浏览到你希望 AI 管理的文件夹，勾选它。BridgeFS 会记住已选择的工作区。")
+
+        addSectionTitle(content, "2. 开启悬浮窗")
+        addInfo(content, "进入设置，点击「悬浮窗权限」并在系统设置中允许。")
+
+        addSectionTitle(content, "3. 允许后台运行")
+        addInfo(content, "OPPO / ColorOS 可能需要额外允许后台运行、自启动，并把 BridgeFS 锁定在最近任务中，避免系统回收。")
+
+        addSectionTitle(content, "4. 从 AI 对话执行指令")
+        addInfo(content,
+            "从 AI 对话复制 BridgeFS 指令，例如：\n\n" +
+            "[list]\n\n" +
+            "[write: 测试.txt] BridgeFS目录读写测试 [/write]\n\n" +
+            "再通过 BridgeFS 悬浮面板执行。"
+        )
+
+        content.addView(pageButton("开始使用") {
+            prefs.edit().putBoolean(onboardingKey, true).apply()
+            screen = Screen.MAIN
+            render()
+        }, LinearLayout.LayoutParams(-1, dp(46)).also { it.topMargin = dp(12) })
+
+        setContentView(basePage(content, withBottom = false))
+    }
+
+    private fun addSectionTitle(parent: LinearLayout, text: String) {
+        parent.addView(TextView(this).apply {
+            this.text = text
+            textSize = 15f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            setTypeface(null, 1)
+        }, LinearLayout.LayoutParams(-1, dp(32)).also { it.topMargin = dp(12) })
+    }
+
+    private fun addInfo(parent: LinearLayout, text: String) {
+        parent.addView(TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+            setPadding(0, dp(2), 0, dp(2))
+        }, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    private fun addSettingSwitch(parent: LinearLayout, title: String, status: String, action: () -> Unit) {
+        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        row.addView(TextView(this).apply {
+            text = "$title\n$status"
+            textSize = 13f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        row.addView(pageButton("管理") { action() }, LinearLayout.LayoutParams(dp(72), dp(36)))
+        parent.addView(row, LinearLayout.LayoutParams(-1, dp(52)))
+    }
+
+    private inner class FileBrowserAdapter(
+        private val files: List<File>
+    ) : RecyclerView.Adapter<FileBrowserAdapter.Holder>() {
+
         inner class Holder(
             val row: ConstraintLayout,
-            val icon: ImageView,
+            val icon: TextView,
             val name: TextView,
             val check: CheckBox,
             val arrow: TextView
@@ -462,96 +511,123 @@ private inner class DirectoryAdapter(
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val row = ConstraintLayout(this@MainActivity).apply {
-                layoutParams = RecyclerView.LayoutParams(-1, dimen(R.dimen.directory_row_height))
-                background = rowRipple(resources.getColor(R.color.bridgefs_surface))
+                layoutParams = RecyclerView.LayoutParams(-1, dp(48))
             }
-            val icon = ImageView(this@MainActivity).apply {
+            val icon = TextView(this@MainActivity).apply {
                 id = View.generateViewId()
-                setImageResource(R.drawable.ic_folder)
+                textSize = 19f
+                gravity = Gravity.CENTER
             }
             val name = TextView(this@MainActivity).apply {
                 id = View.generateViewId()
-                setTextSizeFromDimen(this, R.dimen.directory_item_text_size)
+                textSize = 14f
                 gravity = Gravity.CENTER_VERTICAL
                 setSingleLine(true)
-                ellipsize = android.text.TextUtils.TruncateAt.END
+                ellipsize = TextUtils.TruncateAt.END
             }
             val check = CheckBox(this@MainActivity).apply {
                 id = View.generateViewId()
-                isClickable = false
+                isClickable = true
                 isFocusable = false
                 buttonTintList = ColorStateList.valueOf(resources.getColor(R.color.bridgefs_accent))
             }
             val arrow = TextView(this@MainActivity).apply {
                 id = View.generateViewId()
                 text = "›"
-                setTextSizeFromDimen(this, R.dimen.directory_arrow_size)
+                textSize = 24f
                 gravity = Gravity.CENTER
                 setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
             }
 
-            row.addView(icon, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_icon_size), dimen(R.dimen.directory_icon_size)).apply {
+            row.addView(icon, ConstraintLayout.LayoutParams(dp(34), dp(48)).apply {
                 startToStart = ConstraintLayout.LayoutParams.PARENT_ID
                 topToTop = ConstraintLayout.LayoutParams.PARENT_ID
                 bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-                marginStart = dimen(R.dimen.directory_row_padding)
             })
-            row.addView(check, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_check_width), dimen(R.dimen.directory_row_height)).apply {
+            row.addView(check, ConstraintLayout.LayoutParams(dp(52), dp(48)).apply {
                 endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
                 topToTop = ConstraintLayout.LayoutParams.PARENT_ID
                 bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-                marginEnd = dimen(R.dimen.directory_row_padding)
             })
-            if (onNavigate != null) {
-                row.addView(arrow, ConstraintLayout.LayoutParams(dimen(R.dimen.directory_arrow_width), dimen(R.dimen.directory_row_height)).apply {
-                    endToStart = check.id
-                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
-                    bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-                    marginEnd = dp(4)
-                })
-            }
-            row.addView(name, ConstraintLayout.LayoutParams(0, -2).apply {
-                startToEnd = icon.id
-                endToStart = if (onNavigate != null) arrow.id else check.id
+            row.addView(arrow, ConstraintLayout.LayoutParams(dp(34), dp(48)).apply {
+                endToStart = check.id
                 topToTop = ConstraintLayout.LayoutParams.PARENT_ID
                 bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-                marginStart = dimen(R.dimen.directory_icon_gap)
-                marginEnd = dimen(R.dimen.directory_icon_gap)
             })
+            row.addView(name, ConstraintLayout.LayoutParams(0, dp(48)).apply {
+                startToEnd = icon.id
+                endToStart = arrow.id
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                marginStart = dp(2)
+                marginEnd = dp(2)
+            })
+
             return Holder(row, icon, name, check, arrow)
         }
 
-        override fun getItemCount(): Int = paths.size.coerceAtLeast(1)
+        override fun getItemCount(): Int = files.size
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
-            if (paths.isEmpty()) {
-                holder.name.text = "暂无可用目录"
-                holder.name.setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-                holder.check.visibility = View.GONE
-                holder.icon.visibility = View.GONE
-                holder.arrow.visibility = View.GONE
-                holder.row.setOnClickListener(null)
-                return
+            val file = files[position]
+            val isDir = file.isDirectory
+            holder.icon.text = if (isDir) "▰" else "▱"
+            holder.name.text = file.name
+            holder.name.setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            holder.check.visibility = if (isDir) View.VISIBLE else View.INVISIBLE
+            holder.check.setOnCheckedChangeListener(null)
+            holder.check.isChecked = isRootAdded(file.absolutePath)
+            holder.check.setOnCheckedChangeListener { _, checked ->
+                if (checked != isRootAdded(file.absolutePath)) {
+                    toggleRoot(file.absolutePath)
+                }
             }
-            val path = paths[position]
-            val added = isRootAdded(path)
-            holder.name.text = File(path).name.ifBlank { path }
-            holder.name.setTextColor(resources.getColor(if (added) R.color.bridgefs_text_secondary else R.color.bridgefs_text_primary))
-            holder.check.visibility = if (selectionOnly) View.GONE else View.VISIBLE
-            holder.check.isChecked = added
-            holder.icon.visibility = View.VISIBLE
-            holder.icon.setColorFilter(resources.getColor(if (added) R.color.bridgefs_text_secondary else R.color.bridgefs_accent))
-            holder.arrow.visibility = if (onNavigate != null) View.VISIBLE else View.GONE
-            holder.row.background = rowRipple(resources.getColor(if (added) R.color.bridgefs_input_surface else R.color.bridgefs_surface))
-            holder.row.setOnClickListener { if (selectionOnly) onNavigate?.invoke(path) else onToggle(path) }
-            holder.arrow.setOnClickListener { onNavigate?.invoke(path) }
+            holder.arrow.visibility = if (isDir) View.VISIBLE else View.INVISIBLE
+            holder.row.background = rowRipple(resources.getColor(R.color.bridgefs_surface))
+            holder.row.setOnClickListener {
+                if (isDir) {
+                    currentPath = file
+                    render()
+                }
+            }
+            holder.arrow.setOnClickListener {
+                if (isDir) {
+                    currentPath = file
+                    render()
+                }
+            }
         }
     }
 
-        private fun mainButton(label:String,onClick:()->Unit)=dialogButton(label,onClick)
-    private fun dialogButton(label:String,onClick:()->Unit)=TextView(this).apply{ text=label; textSize=13f; gravity=Gravity.CENTER; setTextColor(resources.getColor(R.color.bridgefs_button_text)); isClickable=true; background=RippleDrawable(ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_orange)),rounded(resources.getColor(R.color.bridgefs_button_bg),dp(12)),null); setOnClickListener{onClick()} }
-    private fun rounded(fill:Int,radius:Int)=GradientDrawable().apply{setColor(fill);cornerRadius=radius.toFloat()}
-    private fun dimen(id:Int)=resources.getDimensionPixelSize(id)
-    private fun rowRipple(fill:Int)=RippleDrawable(ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_gray)),GradientDrawable().apply{setColor(fill);cornerRadius=dimen(R.dimen.directory_row_corner_radius).toFloat()},null)
-    private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
+    private fun pageButton(label: String, onClick: () -> Unit) = TextView(this).apply {
+        text = label
+        textSize = 13f
+        gravity = Gravity.CENTER
+        setTextColor(resources.getColor(R.color.bridgefs_button_text))
+        isClickable = true
+        background = RippleDrawable(
+            ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_orange)),
+            rounded(resources.getColor(R.color.bridgefs_button_bg), dp(12)),
+            null
+        )
+        setOnClickListener { onClick() }
+    }
+
+    private fun rounded(fill: Int, radius: Int) =
+        GradientDrawable().apply {
+            setColor(fill)
+            cornerRadius = radius.toFloat()
+        }
+
+    private fun rowRipple(fill: Int) =
+        RippleDrawable(
+            ColorStateList.valueOf(resources.getColor(R.color.bridgefs_ripple_gray)),
+            GradientDrawable().apply {
+                setColor(fill)
+                cornerRadius = dp(8).toFloat()
+            },
+            null
+        )
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 }
