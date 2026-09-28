@@ -62,23 +62,14 @@ jobs:
           name: BridgeFS-v0.1.2-${{ github.sha }}
           path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - name: Publish latest APK to main release path
+      - name: Publish latest APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cp BridgeFS-0.1/app/build/outputs/apk/debug/*.apk release/BridgeFS.apk
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          CURRENT_MAIN="$(git rev-parse origin/main)"
-          echo "BUILD_SHA=$GITHUB_SHA"
-          echo "CURRENT_MAIN=$CURRENT_MAIN"
-          if [ "$CURRENT_MAIN" != "$GITHUB_SHA" ]; then
-            echo "main advanced after this build started; refusing to publish stale APK."
-            exit 0
-          fi
-          git add release/BridgeFS.apk
-          if git diff --cached --quiet; then
-            echo "APK unchanged"
-            exit 0
-          fi
-          git commit -m "release: update latest APK [skip ci]"
-          git push origin HEAD:main
+          APK="$(find BridgeFS-0.1/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          echo "APK=$APK"
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest "$APK" \
+            --title "BridgeFS Latest" \
+            --notes "Latest successful GitHub Actions build." \
+            --target "$GITHUB_SHA"
