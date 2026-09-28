@@ -4,11 +4,24 @@ on:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify source revision
+        run: |
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -43,7 +56,7 @@ jobs:
         working-directory: BridgeFS-0.1
       - uses: actions/upload-artifact@v4
         with:
-          name: BridgeFS-v0.1.2
+          name: BridgeFS-v0.1.2-${{ github.sha }}
           path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
       - name: Publish latest APK to main release path
@@ -52,11 +65,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git rebase origin/main
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          echo "BUILD_SHA=$GITHUB_SHA"
+          echo "CURRENT_MAIN=$CURRENT_MAIN"
+          if [ "$CURRENT_MAIN" != "$GITHUB_SHA" ]; then
+            echo "main advanced after this build started; refusing to publish stale APK."
+            exit 0
+          fi
           git add release/BridgeFS.apk
           if git diff --cached --quiet; then
             echo "APK unchanged"
             exit 0
           fi
           git commit -m "release: update latest APK [skip ci]"
-          git push
+          git push origin HEAD:main
