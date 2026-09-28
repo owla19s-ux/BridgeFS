@@ -460,7 +460,6 @@ private fun findReceipt(v:View):TextView?{if(v is TextView&&v.text.toString()=="
 private fun smallButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun mainButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;minimumHeight=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun showHelpDialog(){
-if(panel!=null)return
 try{
 log("UI","showHelpDialog")
 val message="""【BridgeFS 完整使用手册】
