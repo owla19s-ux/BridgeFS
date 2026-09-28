@@ -62,14 +62,15 @@ jobs:
           name: BridgeFS-v0.1.2-${{ github.sha }}
           path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: Prepare stable APK filename
+        run: |
+          APK="$(find BridgeFS-0.1/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" BridgeFS.apk
+          echo "Release APK: BridgeFS.apk"
       - name: Publish latest APK to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="$(find BridgeFS-0.1/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
-          echo "APK=$APK"
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest "$APK" \
-            --title "BridgeFS Latest" \
-            --notes "Latest successful GitHub Actions build." \
-            --target "$GITHUB_SHA"
+          gh release create latest BridgeFS.apk             --title "BridgeFS Latest"             --notes "Latest successful GitHub Actions build."             --target "$GITHUB_SHA"
