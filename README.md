@@ -2,7 +2,6 @@
 
 **最新 APK：** [下载 BridgeFS.apk](https://github.com/owla19s-ux/BridgeFS/releases/latest/download/BridgeFS.apk)
 
-
 **BridgeFS** 是一个 Android 本地文件执行桥：把 AI 对话中的结构化文件指令交给手机上的 BridgeFS 执行，并返回真实执行结果。
 
 本仓库当前版本已经完成这一轮功能测试，**短期冻结，不再继续扩展 BridgeFS 本体功能**。后续如需新能力，应以新的施工轮次或新版本计划处理。
@@ -22,6 +21,7 @@
 | Service 弹窗崩溃处理 | 已修复 |
 | Java / Kotlin JVM 目标 | 已统一为 Java 17 / Kotlin 17 |
 | 云端 APK 构建 | 已验证 |
+| GitHub Release 最新 APK | 已验证 |
 | GitHub Pages 下载页 | 已验证 |
 | 短期版本状态 | **冻结** |
 
@@ -132,6 +132,7 @@ BridgeFS 不要求 AI 直接获得手机文件系统权限；AI 只负责产生�
 - `TYPE_APPLICATION_OVERLAY` 悬浮层
 - RecyclerView 目录浏览
 - GitHub Actions 云端构建
+- GitHub Release 自动发布最新版 APK
 
 Android 工程位于：
 
@@ -166,30 +167,39 @@ gradle :app:assembleDebug
 
 GitHub Actions：
 
-- `.github/workflows/build.yml`：构建测试 APK
+- `.github/workflows/build.yml`：构建 APK，并自动发布到 GitHub Release 的 `latest`
 - `.github/workflows/pages.yml`：构建并发布 GitHub Pages 下载页
 
-当前 APK 构建产物名称为：
+当前对外下载的 APK 文件固定为：
 
 ```text
-BridgeFS-v0.1.2.apk
+BridgeFS.apk
+```
+
+下载地址固定为：
+
+```text
+https://github.com/owla19s-ux/BridgeFS/releases/latest/download/BridgeFS.apk
 ```
 
 ## 下载
 
-项目的 GitHub Pages 下载页也提供下载入口。
+项目的 GitHub Pages 下载页和 README 顶部均提供最新版 APK 下载入口。
+
+下载链接始终指向 GitHub Release 的 `latest`，不会因为新版本构建而需要修改 README 或主页中的链接。
 
 ## 项目结构
 
 ```text
 BridgeFS/
 ├─ BridgeFS-0.1/              # Android 工程
-├─ release/                   # 固定正式版 APK
 ├─ docs/                      # GitHub Pages 下载页
-├─ .github/workflows/         # 云端构建与发布
+├─ .github/workflows/         # 云端构建、Release 发布与 Pages
 ├─ BRIDGEFS_CODE_REVIEW_2026-09-25.md
 └─ README.md                  # 仓库总说明
 ```
+
+APK 不再作为需要手动维护的仓库文件发布；每次成功构建后由 GitHub Actions 自动更新 GitHub Release 的 `latest` 资产。
 
 ## 当前冻结说明
 
@@ -205,6 +215,7 @@ BridgeFS/
 - 文件读写与回执
 - 错误提示
 - 云端构建
+- GitHub Release 最新 APK
 - APK 下载页
 
 **短期不继续升级 BridgeFS 本体。**
