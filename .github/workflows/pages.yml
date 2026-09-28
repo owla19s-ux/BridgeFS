@@ -61,10 +61,12 @@ jobs:
           test -n "$APK" && test -s "$APK"
           ls -lh "$APK"
       - name: Keep stable APK asset
+        env:
+          PROMOTE_STABLE: ${{ github.event.head_commit.message == 'release: promote latest stable APK' }}
         run: |
           set -e
           mkdir -p release
-          if [ ! -s release/BridgeFS.apk ]; then
+          if [ ! -s release/BridgeFS.apk ] || [ "$PROMOTE_STABLE" = "true" ]; then
             APK=$(find BridgeFS-0.1/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)
             cp "$APK" release/BridgeFS.apk
             git config user.name "github-actions[bot]"
