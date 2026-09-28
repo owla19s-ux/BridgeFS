@@ -394,15 +394,15 @@ private fun positionBottomBarAtSlot(box:LinearLayout,slot:View){
 if(panel!==box||!box.isAttachedToWindow||slot.parent!==box||!::overlayRoot.isInitialized)return
 try{
 ensureRobotState(true)
-val slotLocation=IntArray(2);val hostLocation=IntArray(2)
-slot.getLocationOnScreen(slotLocation);overlayRoot.getLocationOnScreen(hostLocation)
+val slotLocation=IntArray(2);val hostLocation=IntArray(2);val boxLocation=IntArray(2)
+slot.getLocationOnScreen(slotLocation);overlayRoot.getLocationOnScreen(hostLocation);box.getLocationOnScreen(boxLocation)
 val p=(bottom_bar.layoutParams as? FrameLayout.LayoutParams)?:FrameLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
 p.width=WindowManager.LayoutParams.WRAP_CONTENT;p.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 p.gravity=Gravity.TOP or Gravity.LEFT
-p.leftMargin=(slotLocation[0]-hostLocation[0]+((slot.width-bottom_bar.measuredWidth)/2)).coerceAtLeast(0)
+p.leftMargin=(boxLocation[0]-hostLocation[0]+box.width-bottom_bar.measuredWidth-dp(8)).coerceAtLeast(0)
 p.topMargin=(slotLocation[1]-hostLocation[1]).coerceAtLeast(0)
 p.rightMargin=0;p.bottomMargin=0
-bottom_bar.layoutParams=p;bottom_bar.visibility=View.VISIBLE;bottomBarBrand.visibility=View.GONE;ball.visibility=View.VISIBLE
+bottom_bar.layoutParams=p;bottom_bar.visibility=View.VISIBLE;ensureRobotState(true);ball.visibility=View.VISIBLE
 bottom_bar.invalidate();ball.invalidate();updateBottomBarWindow()
 orbTransitionOrigin=null
 }catch(e:Exception){log("Error","position footer bar："+e.message);runCatching{ensureRobotState(true)}}
@@ -506,8 +506,8 @@ val sw=resources.displayMetrics.widthPixels
 val x=bottomBarLp.x.coerceIn(0,(sw-bottom_bar.width).coerceAtLeast(0))
 bottomBarLp.x=x
 when{
-x<sw/4->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
-x>sw*3/4->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
+x<sw/2->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
+else->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
 else->{bottomBarEdgeHidden=0;updateBottomBarWindow()}
 }
 }
@@ -714,7 +714,9 @@ return segments.any{it=="android"}||listOf("/android/data","/android/obb","/andr
 private fun activateWorkspace(path:String,onConfirm:()->Unit){
 if(isProtectedWorkspace(path)){toast("此目录属于系统受保护区域，无法作为工作区");return}
 if(File(path).name.equals("Download",true)){
-showDownloadWorkspaceConfirm(path,onConfirm)
+val prefs=getSharedPreferences("bridgefs",0)
+if(prefs.getBoolean("download_workspace_confirmed",false))onConfirm()
+else showDownloadWorkspaceConfirm(path,onConfirm)
 }else onConfirm()
 }
 private fun showDownloadWorkspaceConfirm(path:String,onConfirm:()->Unit){
@@ -746,7 +748,10 @@ setPadding(dp(8),dp(12),dp(8),dp(8))
 box.addView(message,LinearLayout.LayoutParams(-1,0,1f))
 val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
 val cancel=smallButton("取消"){showRootList()}
-val confirm=mainButton("确认"){onConfirm()}
+val confirm=mainButton("确认"){
+getSharedPreferences("bridgefs",0).edit().putBoolean("download_workspace_confirmed",true).apply()
+onConfirm()
+}
 actions.addView(cancel,LinearLayout.LayoutParams(dp(64),dp(40)))
 actions.addView(confirm,LinearLayout.LayoutParams(dp(64),dp(40)).also{it.marginStart=dp(8)})
 box.addView(actions,LinearLayout.LayoutParams(-1,dp(48)))
