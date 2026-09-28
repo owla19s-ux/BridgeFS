@@ -1,6 +1,9 @@
 name: Publish BridgeFS Pages
 # stable promotion marker
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
