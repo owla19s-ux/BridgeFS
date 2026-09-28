@@ -334,7 +334,7 @@ val height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
 if(::bottom_bar.isInitialized){
 bottom_bar.visibility=View.INVISIBLE
-bottomBarBrand.visibility=View.INVISIBLE
+bottomBarBrand.visibility=View.GONE
 ball.visibility=View.INVISIBLE
 }
 val slot=View(this)
@@ -397,10 +397,10 @@ slot.getLocationOnScreen(slotLocation);overlayRoot.getLocationOnScreen(hostLocat
 val p=(bottom_bar.layoutParams as? FrameLayout.LayoutParams)?:FrameLayout.LayoutParams(-2,resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height))
 p.width=WindowManager.LayoutParams.WRAP_CONTENT;p.height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 p.gravity=Gravity.TOP or Gravity.LEFT
-p.leftMargin=(slotLocation[0]-hostLocation[0]+slot.width-bottom_bar.measuredWidth).coerceAtLeast(0)
+p.leftMargin=(slotLocation[0]-hostLocation[0]+((slot.width-bottom_bar.measuredWidth)/2)).coerceAtLeast(0)
 p.topMargin=(slotLocation[1]-hostLocation[1]).coerceAtLeast(0)
 p.rightMargin=0;p.bottomMargin=0
-bottom_bar.layoutParams=p;bottom_bar.visibility=View.VISIBLE;bottomBarBrand.visibility=View.VISIBLE;ball.visibility=View.VISIBLE
+bottom_bar.layoutParams=p;bottom_bar.visibility=View.VISIBLE;bottomBarBrand.visibility=View.GONE;ball.visibility=View.VISIBLE
 bottom_bar.invalidate();ball.invalidate();updateBottomBarWindow()
 orbTransitionOrigin=null
 }catch(e:Exception){log("Error","position footer bar："+e.message);runCatching{ensureRobotState(true)}}
@@ -617,7 +617,7 @@ setPadding(dp(8),dp(6),dp(8),dp(6))
 }
 val scroll=object:ScrollView(this){
 override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
-super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dimen(R.dimen.directory_list_max_height),View.MeasureSpec.EXACTLY))
+super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dimen(R.dimen.help_scroll_height),View.MeasureSpec.EXACTLY))
 }
 }.apply{
 isFillViewport=false
@@ -625,7 +625,7 @@ isVerticalScrollBarEnabled=true
 scrollBarSize=dp(2)
 addView(manualText,ViewGroup.LayoutParams(-1,-2))
 }
-box.addView(scroll,LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_list_max_height)).apply{topMargin=dp(2)})
+box.addView(scroll,LinearLayout.LayoutParams(-1,dimen(R.dimen.help_scroll_height)).apply{topMargin=dp(2)})
 addPanelFooter(box)
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
 clearPanel()
