@@ -316,10 +316,56 @@ val height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
 ensureRobotState(true)
 val slot=View(this)
+slot.isClickable=true
+slot.isFocusable=false
+slot.setOnTouchListener{_,event->panelFooterTouchHandler(event)}
 box.addView(slot,LinearLayout.LayoutParams(-1,height).also{it.topMargin=topGap})
 slot.post{runCatching{positionBottomBarAtSlot(box,slot)}.onFailure{log("Error","position footer bar："+it.message)}}
 }catch(e:Exception){log("Error","addPanelFooter："+e.message);runCatching{ensureRobotState(true)}}
 }
+private var footerDownRawX=0f
+private var footerDownRawY=0f
+private var footerStartX=0
+private var footerStartY=0
+private var footerMoved=false
+
+private fun panelFooterTouchHandler(e:MotionEvent):Boolean{
+return try{
+when(e.actionMasked){
+MotionEvent.ACTION_DOWN->{
+bottomBarMoveAnimator?.cancel();bottomBarMoveAnimator=null
+footerDownRawX=e.rawX;footerDownRawY=e.rawY
+footerStartX=panelLpRef.x;footerStartY=panelLpRef.y
+footerMoved=false
+true
+}
+MotionEvent.ACTION_MOVE->{
+val dx=e.rawX-footerDownRawX;val dy=e.rawY-footerDownRawY
+if(kotlin.math.abs(dx)>dp(5)||kotlin.math.abs(dy)>dp(5))footerMoved=true
+if(footerMoved&&panel!=null){
+val current=panel!!
+panelLpRef.x=(footerStartX+dx).toInt().coerceIn(0,(resources.displayMetrics.widthPixels-current.width).coerceAtLeast(0))
+panelLpRef.y=(footerStartY+dy).toInt().coerceIn(0,(resources.displayMetrics.heightPixels-current.height).coerceAtLeast(0))
+updatePanelWindow(current)
+}
+true
+}
+MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{
+if(footerMoved){
+val current=panel
+if(current!=null){
+panelLpRef.x=panelLpRef.x.coerceIn(0,(resources.displayMetrics.widthPixels-current.width).coerceAtLeast(0))
+panelLpRef.y=panelLpRef.y.coerceIn(0,(resources.displayMetrics.heightPixels-current.height).coerceAtLeast(0))
+updatePanelWindow(current)
+}
+}
+true
+}
+else->false
+}
+}catch(e:Exception){log("Error","panel footer touch："+e.message);true}
+}
+
 private fun positionBottomBarAtSlot(box:LinearLayout,slot:View){
 if(panel!==box||!box.isAttachedToWindow||slot.parent!==box||!::overlayRoot.isInitialized)return
 try{
@@ -462,82 +508,61 @@ private fun mainButton(label:String,onClick:()->Unit)=Button(this).apply{text=la
 private fun showHelpDialog(){
 try{
 log("UI","showHelpDialog")
-val message="""【BridgeFS 完整使用手册】
+val message="""【BridgeFS 使用手册】
 
-【使用提示】
-本说明可整体复制发给 AI，AI 将根据本说明自动生成正确格式的指令。用户只需把 AI 生成的指令粘贴回 BridgeFS 执行即可。
+【怎么用】
+1. 先设置工作区（根目录）。
+2. 把需求告诉 AI，让 AI 生成 BridgeFS 指令。
+3. 把指令粘贴到输入框，点击【执行】。
+4. 执行结果会显示在面板下方。
 
-【一、BridgeFS 是什么？】
-BridgeFS 是一款运行在 Android 设备上的悬浮窗文件管理工具。它的核心作用是：让 AI 获得读写手机本地文件的能力。
+【悬浮窗】
+- 点击机器人：展开/收起面板。
+- 拖动底部整块空白区域：移动面板。
+- 点击【!】：打开本手册。
+- 机器人靠近屏幕边缘时会自动隐藏一半。
 
-【二、用户操作指南】
-1. 设定工作区（根目录）：在 BridgeFS 主界面点击“+ 添加目录”，选择 AI 可以操作的文件夹（例如 资料区 或 Download）。勾选即生效，取消勾选即移除。
-   - 安全提示：禁止将内置存储根目录、Android/data、Android/obb 等系统目录设为工作区。
-   - 选择 Download 等常用目录时，请确保不会影响其他应用的使用。
-   - 本软件【没有删除文件】的功能，AI 无法删除任何文件。
-2. 与 AI 配合流程：
-   - 用户在 AI 那里提出需求（例如：“帮我把一段话保存到 资料区/test.txt”）。
-   - AI 生成 BridgeFS 格式的指令块。
-   - 用户复制指令到 BridgeFS 悬浮窗输入框，点击【执行】。
-3. 悬浮窗操作技巧：
-   - 点击机器人：展开/收起面板。
-   - 拖动机器人或底部 BridgeFS 文字：移动面板。
-   - 点击 `!`：调出本说明，并可一键复制发给 AI。
-   - 机器人拖到屏幕边缘：自动隐藏一半，点击弹出。
-4. 常见问题排查：
-   - 执行失败请检查是否使用了绝对路径（不支持绝对路径，请用相对路径）。
-   - 若软件自动关闭，请检查悬浮窗权限和后台保活设置。
-
-【三、AI 指令生成规范（请 AI 阅读以下规则）】
-1. 路径规则：所有路径必须使用【相对路径】（相对于用户设定的根目录）。不支持绝对路径（如 /storage/emulated/0/），否则会被安全校验拒绝。
-2. 多条指令：可一次发送多条指令，按顺序执行。
-3. 换行保留：包含内容的指令，换行符会被严格保留，不要随意多加空行。
-
-【四、指令模板与说明】
+【AI 指令】
 [list]
-  - 列出当前目录的内容。
+列出当前工作区内容。
 
 [read: 相对路径]
-  - 读取文件。
-  - 示例：[read: 文档/test.txt]
+读取文件，例如：[read: 文档/test.txt]
 
 [write: 相对路径]
-  - 新建或覆盖写入文件。
-  - 内容必须写在下一行，并以 [/write] 结束（前后需换行）。
-  - 示例：
-    [write: 资料区/test.txt]
-    这是写入的内容
-    [/write]
+写入或覆盖文件，内容放在下一行，最后用 [/write] 结束。
+[write: 资料区/test.txt]
+内容
+[/write]
 
 [edit: 相对路径]
-  - 修改文件内容，支持“查找替换”。
-  - 必须包含“====”分隔符，上方为旧内容，下方为新内容，并以 [/edit] 结束。
-  - 示例：
-    [edit: 资料区/test.txt]
-    旧内容
-    ====
-    新内容
-    [/edit]
+查找替换文件内容，用 ==== 分隔旧内容和新内容。
+[edit: 资料区/test.txt]
+旧内容
+====
+新内容
+[/edit]
 
-[search: *.后缀]
-  - 按文件名搜索。
-  - 示例：[search: *.json]
+[search: *.json]
+按文件名搜索。
 
 [grep: 关键词]
-  - 按文件内容搜索。
+按文件内容搜索。
 
 [path: 相对路径]
-  - 获取文件的完整绝对路径（用于查看）。
+查看文件完整路径。
 
 [copy-path: 相对路径]
-  - 复制文件的绝对路径到剪贴板。
+复制文件完整路径。
 
-[mkdir: 相对路径]
-  - 新建文件夹。
-  - 示例：[mkdir: 资料区/新建文件夹]"""
+【规则】
+- 路径必须是相对于工作区根目录的相对路径。
+- 一次可以发送多条指令，按顺序执行。
+- BridgeFS 不提供删除文件功能。
+"""
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
-setPadding(dp(12),dp(12),dp(12),dp(12))
+setPadding(dp(12),dp(10),dp(12),0)
 background=bg("#FFFFFF",16,"#E0E0E0")
 elevation=dp(8).toFloat()
 }
@@ -547,21 +572,18 @@ textSize=15f
 setTypeface(null,1)
 setTextColor(resources.getColor(R.color.bridgefs_text_primary))
 gravity=Gravity.CENTER_VERTICAL
-},LinearLayout.LayoutParams(-1,dp(40)))
+},LinearLayout.LayoutParams(-1,dp(38)))
 val manualText=TextView(this).apply{
 text=message
 textSize=12f
 typeface=android.graphics.Typeface.MONOSPACE
 setTextColor(resources.getColor(R.color.bridgefs_text_primary))
-setLineSpacing(dp(4).toFloat(),1f)
-setPadding(dp(10),dp(8),dp(10),dp(8))
+setLineSpacing(dp(3).toFloat(),1f)
+setPadding(dp(8),dp(6),dp(8),dp(6))
 }
 val scroll=object:ScrollView(this){
 override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
-val maxHeight=dp(480)
-val mode=View.MeasureSpec.getMode(heightMeasureSpec)
-val available=if(mode==View.MeasureSpec.UNSPECIFIED)maxHeight else minOf(View.MeasureSpec.getSize(heightMeasureSpec),maxHeight)
-super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(available,View.MeasureSpec.AT_MOST))
+super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dp(285),View.MeasureSpec.AT_MOST))
 }
 }.apply{
 isFillViewport=false
@@ -569,12 +591,15 @@ isVerticalScrollBarEnabled=true
 scrollBarSize=dp(2)
 addView(manualText,ViewGroup.LayoutParams(-1,-2))
 }
-box.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(4)})
-val copy=smallButton("复制全部指令"){copyText("BridgeFS 完整使用手册",message);toast("已复制完整使用手册")}.apply{textSize=8f;setSingleLine(true);maxLines=1;contentDescription="复制全部指令"}
+box.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(2)})
+val copy=smallButton("复制全部"){copyText("BridgeFS 使用手册",message);toast("已复制使用手册")}.apply{
+textSize=10f;setSingleLine(true);maxLines=1;contentDescription="复制全部使用手册"
+}
 val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
-actions.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)))
-box.addView(actions,LinearLayout.LayoutParams(-1,dp(40)).apply{topMargin=dp(8)})
-box.setPadding(box.paddingLeft,dp(8),box.paddingRight,box.paddingBottom)
+actions.addView(copy,LinearLayout.LayoutParams(dp(64),dp(38)))
+box.addView(actions,LinearLayout.LayoutParams(-1,dp(38)).apply{topMargin=dp(4)})
+addPanelFooter(box,dp(4))
+box.setPadding(box.paddingLeft,dp(10),box.paddingRight,0)
 clearPanel()
 panel=box
 val sw=resources.displayMetrics.widthPixels
