@@ -1,6 +1,7 @@
 package com.owla19s.bridgefs
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.Dialog
 import android.content.*
 import android.graphics.Color
@@ -948,6 +949,8 @@ class MainActivity : Activity() {
             ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java))
         }
     }
+
+    private fun saveProjects() = store.save(projects)
 
     private fun smallAction(label: String, action: () -> Unit) = TextView(this).apply {
         text = label
