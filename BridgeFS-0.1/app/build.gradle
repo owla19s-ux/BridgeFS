@@ -3,7 +3,7 @@ plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 android {
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            output.outputFileName = "BridgeFS-v0.2.0.apk"
+            output.outputFileName = "BridgeFS-v0.1.2.apk"
         }
     }
     namespace 'com.owla19s.bridgefs'
@@ -13,8 +13,8 @@ android {
         applicationId 'com.owla19s.bridgefs'
         minSdk 30
         targetSdk 35
-        versionCode 4
-        versionName '0.2.0'
+        versionCode 3
+        versionName '0.1.2'
     }
 
     signingConfigs {

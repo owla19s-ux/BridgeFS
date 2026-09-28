@@ -56,46 +56,6 @@ startForeground(1,Notification.Builder(this,"filebridge").setContentTitle("FileB
 wm=getSystemService(WINDOW_SERVICE)as WindowManager
 log("Service","onCreate");showBall()
 }
-override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-if (intent?.hasExtra("bridgefs_external_command") == true) {
-val text=intent.getStringExtra("bridgefs_external_command").orEmpty()
-val rootPath=intent.getStringExtra("bridgefs_root").orEmpty()
-val projectId=intent.getStringExtra("projectId")
-commandExecutor.submit {
-val result=executeExternalCommand(rootPath,text)
-broadcastReceipt(result.first,result.second,result.third,projectId)
-}
-}
-return START_NOT_STICKY
-}
-
-private fun executeExternalCommand(rootPath:String,text:String):Triple<String,String,String>{
-val rootFile=File(rootPath)
-if(rootPath.isBlank()||!rootFile.isDirectory||isProtectedWorkspace(rootPath)){
-return Triple("FAILED",text,"工作目录无效或属于受保护区域："+rootPath)
-}
-val commands=CommandParser.parse(text)
-if(commands.isEmpty()){
-return Triple("FAILED",text,CommandParser.lastError ?: "未识别到可执行指令")
-}
-return try{
-val results=commands.map{CommandExecutor(rootFile,this).execute(it)}
-val message=results.joinToString("\n\n")
-val status=if(results.any{it.contains("✗")})"FAILED" else "SUCCEEDED"
-Triple(status,commands.joinToString(" | "){it.toString()},message)
-}catch(e:Exception){
-Triple("FAILED",text,"执行异常："+(e.message ?: "未知错误"))
-}
-}
-
-private fun broadcastReceipt(status:String,command:String,message:String,projectId:String?){
-val intent=Intent("com.bridgefs.RESULT").setPackage(packageName)
-.putExtra("status",status)
-.putExtra("command",command)
-.putExtra("message",message)
-if(projectId!=null)intent.putExtra("projectId",projectId)
-sendBroadcast(intent)
-}
 private fun channel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("filebridge","FileBridge",NotificationManager.IMPORTANCE_LOW))}
 private fun lp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,-3)
 private fun panelLp(w:Int,h:Int)=WindowManager.LayoutParams(w,h,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,-3)
@@ -252,25 +212,18 @@ val run=mainButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
 if(cs.isEmpty()){
-    val message=CommandParser.lastError ?: "未发现可执行指令"
-    findReceipt(box)?.let{it.text=message;it.setTextColor(Color.DKGRAY)}
-    broadcastReceipt("FAILED",raw,message,null)
+    findReceipt(box)?.let{it.text=CommandParser.lastError ?: "未发现可执行指令";it.setTextColor(Color.DKGRAY)}
 }else if(CommandParser.lastError!=null){
-    val message=CommandParser.lastError!!
-    findReceipt(box)?.let{it.text=message;it.setTextColor(Color.DKGRAY)}
-    broadcastReceipt("FAILED",raw,message,null)
+    findReceipt(box)?.let{it.text=CommandParser.lastError!!;it.setTextColor(Color.DKGRAY)}
 }else{
     runButton?.isEnabled=false
     commandExecutor.submit{
         val results=cs.map{CommandExecutor(root,this).execute(it)}
-        val message=results.joinToString("\n\n")
-        val status=if(results.any{it.contains("✗")})"FAILED" else "SUCCEEDED"
         handler.post{
-            findReceipt(box)?.let{it.text=message;it.setTextColor(Color.DKGRAY)}
+            findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
             runButton?.isEnabled=true
-            log("Command","执行 "+cs.size+" 条指令："+if(status=="SUCCEEDED")"成功" else "失败")
+            log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
         }
-        broadcastReceipt(status,cs.joinToString(" | "){it.toString()},message,null)
     }
 }
 }
