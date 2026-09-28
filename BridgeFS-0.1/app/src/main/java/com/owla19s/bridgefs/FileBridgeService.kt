@@ -38,6 +38,8 @@ private var bottomBarPanelStartX=0
 private var bottomBarPanelStartY=0
 private var commandInput:EditText?=null
 private lateinit var root:File
+private var workspaceReady=false
+private val commandExecutor=java.util.concurrent.Executors.newSingleThreadExecutor()
 private lateinit var bottomBarLp:WindowManager.LayoutParams
 private lateinit var panelLpRef:WindowManager.LayoutParams
 private val handler=Handler(Looper.getMainLooper())
@@ -45,7 +47,10 @@ companion object{@Volatile var running=false;@Volatile var clipboardCallback:((S
 
 override fun onCreate(){
 super.onCreate();running=true
-root=File(getSharedPreferences("bridgefs",0).getString("root_path","")!!)
+val configuredRoot=getSharedPreferences("bridgefs",0).getString("root_path","").orEmpty()
+root=File(getExternalFilesDir(null),"unconfigured-workspace")
+workspaceReady=runCatching{configuredRoot.isNotBlank()&&File(configuredRoot).isDirectory&&!isProtectedWorkspace(configuredRoot)}.getOrDefault(false)
+if(workspaceReady)root=File(configuredRoot).canonicalFile
 channel()
 startForeground(1,Notification.Builder(this,"filebridge").setContentTitle("FileBridge").setContentText("悬浮文件桥运行中").setSmallIcon(android.R.drawable.ic_menu_manage).build())
 wm=getSystemService(WINDOW_SERVICE)as WindowManager
@@ -153,6 +158,7 @@ if(overlayRoot.isAttachedToWindow)updateBottomBarWindow()
 }
 
 private fun showPanel(){
+if(!workspaceReady){toast("请先在 BridgeFS 主页面设置并激活项目目录");return}
 if(isRenderingMainPanel)return
 isRenderingMainPanel=true
 try{
@@ -204,9 +210,19 @@ val paste=mainButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::c
 val run=mainButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
-val results=if(cs.isEmpty())listOf("未发现可执行指令")else cs.map{CommandExecutor(root,this).execute(it)}
-findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
-log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
+if(cs.isEmpty()){
+    findReceipt(box)?.let{it.text="未发现可执行指令";it.setTextColor(Color.DKGRAY)}
+}else{
+    run.isEnabled=false
+    commandExecutor.submit{
+        val results=cs.map{CommandExecutor(root,this).execute(it)}
+        handler.post{
+            findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
+            run.isEnabled=true
+            log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
+        }
+    }
+}
 }
 val inputSide=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
@@ -718,7 +734,7 @@ top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)))
 top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(4)})
 box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
 val message=TextView(this).apply{
-text="下载目录可能同时包含系统下载文件。\\n\\n确认将：\\nBridgeFS-0.1/app/src/main/java/com/owla19s/bridgefs/FileBridgeService.kt\\n\\n设为 BridgeFS 当前工作区？"
+text="下载目录可能同时包含系统下载文件。\\n\\n确认将：\\n${path}\\n\\n设为 BridgeFS 当前工作区？"
 textSize=13f
 setTextColor(resources.getColor(R.color.bridgefs_text_primary))
 setPadding(dp(8),dp(12),dp(8),dp(8))
@@ -804,7 +820,7 @@ private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setCol
 private fun dimen(id:Int)=resources.getDimensionPixelSize(id)
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
-override fun onDestroy(){clipboardCallback=null;commandInput=null;log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
+override fun onDestroy(){clipboardCallback=null;commandInput=null;commandExecutor.shutdownNow();log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
 }
 
 class ClipboardReaderActivity:Activity(){
