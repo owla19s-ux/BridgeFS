@@ -212,7 +212,9 @@ val run=mainButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
 if(cs.isEmpty()){
-    findReceipt(box)?.let{it.text="未发现可执行指令";it.setTextColor(Color.DKGRAY)}
+    findReceipt(box)?.let{it.text=CommandParser.lastError ?: "未发现可执行指令";it.setTextColor(Color.DKGRAY)}
+}else if(CommandParser.lastError!=null){
+    findReceipt(box)?.let{it.text=CommandParser.lastError!!;it.setTextColor(Color.DKGRAY)}
 }else{
     runButton?.isEnabled=false
     commandExecutor.submit{
