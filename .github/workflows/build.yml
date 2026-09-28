@@ -59,7 +59,7 @@ jobs:
         working-directory: BridgeFS-0.1
       - uses: actions/upload-artifact@v4
         with:
-          name: BridgeFS-v0.1.2-${{ github.sha }}
+          name: BridgeFS-v0.2.0-${{ github.sha }}
           path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
       - name: Prepare stable APK filename
