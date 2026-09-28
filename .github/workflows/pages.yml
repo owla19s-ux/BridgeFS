@@ -73,17 +73,17 @@ jobs:
             git commit -m "release: publish BridgeFS v0.1 APK"
             git push
           fi
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Prepare site
         run: |
           set -e
           rm -rf _site
-          mkdir -p _site
+          mkdir -p _site/test
           cp docs/index.html _site/index.html
           cp release/BridgeFS.apk _site/BridgeFS.apk
+          APK=$(find BridgeFS-0.1/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)
+          cp "$APK" _site/test/BridgeFS-test.apk
           test -s _site/BridgeFS.apk
+          test -s _site/test/BridgeFS-test.apk
           printf '%s\n' 'BridgeFS APK' > _site/README.txt
       - uses: actions/upload-pages-artifact@v3
         with:
