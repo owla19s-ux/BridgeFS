@@ -62,7 +62,7 @@ jobs:
           ls -lh "$APK"
       - name: Keep stable APK asset
         env:
-          PROMOTE_STABLE: ${{ github.event.head_commit.message == 'release: promote latest stable APK' }}
+          PROMOTE_STABLE: "${{ github.event.head_commit.message == 'release: promote latest stable APK' }}"
         run: |
           set -e
           mkdir -p release
