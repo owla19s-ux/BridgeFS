@@ -567,7 +567,7 @@ background=bg("#FFFFFF",16,null)
 elevation=dp(8).toFloat()
 }
 val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-val back=smallButton("←"){closePanel()}
+val back=smallButton("←"){showPanel()}
 val title=TextView(this).apply{
 text="BridgeFS 使用手册"
 textSize=15f
