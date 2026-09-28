@@ -505,9 +505,12 @@ updatePanelWindow(current)
 val sw=resources.displayMetrics.widthPixels
 val x=bottomBarLp.x.coerceIn(0,(sw-bottom_bar.width).coerceAtLeast(0))
 bottomBarLp.x=x
+val snapDistance=dp(48)
+val maxX=(sw-bottom_bar.width).coerceAtLeast(0)
 when{
-x<sw/2->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
-else->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
+x<=snapDistance->{bottomBarEdgeHidden=-1;animateBottomBarToX(0)}
+maxX-x<=snapDistance->{bottomBarEdgeHidden=1;animateBottomBarToX(maxX)}
+else->{bottomBarEdgeHidden=0;bottomBarRevealTargetX=null;updateBottomBarWindow()}
 }
 }
 true
