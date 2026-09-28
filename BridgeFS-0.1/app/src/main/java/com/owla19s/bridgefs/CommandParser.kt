@@ -11,11 +11,20 @@ sealed class Command {
  data class Mkdir(val path:String):Command()
 }
 object CommandParser {
+ var lastError: String? = null
  private val simple=Regex("(?m)^\\s*\\[(list)\\]\\s*$|^\\s*\\[(read|search|grep|path|copy-path|mkdir):\\s*(.*?)\\]\\s*$")
  private val write=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[write:\\s*(.+?)\\]\\s*\\n(.*?)\\[/write\\]\\s*(?:\\x60\\x60\\x60)?")
  private val edit=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[edit:\\s*(.+?)\\]\\s*\\n(.*?)\\[/edit\\]\\s*(?:\\x60\\x60\\x60)?")
  fun parse(input:String):List<Command>{
+  lastError = null
   val h=mutableListOf<Pair<Int,Command>>()
+  val trimmed=input.trim()
+  if(trimmed.isBlank()) return emptyList()
+  val hasUnclosedWrite=Regex("(?is)\\[write\\s*:[^\\]]+\\]").containsMatchIn(trimmed) && !write.containsMatchIn(trimmed)
+  if(hasUnclosedWrite){
+   lastError = "write 指令缺少 [/write] 结束标记，未写入文件"
+   return emptyList()
+  }
   simple.findAll(input).forEach{
    val s=it.value.trim()
    h+=it.range.first to when{
@@ -34,6 +43,8 @@ object CommandParser {
    val p=b.indexOf("====")
    if(p>=0)h+=it.range.first to Command.Edit(it.groupValues[1].trim(),b.substring(0,p),b.substring(p+4))
   }
-  return h.sortedBy{it.first}.map{it.second}
+  val result=h.sortedBy{it.first}.map{it.second}
+  if(result.isEmpty()) lastError = "未识别到可执行的 BridgeFS 指令，请使用 [list]、[read: 路径] 等格式"
+  return result
  }
 }
