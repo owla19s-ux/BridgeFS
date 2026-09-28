@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private val rootsKey = "root_paths"
     private var pickerPath = File("/storage/emulated/0")
     private var firstResume = true
+    private var pickerMode = false
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
@@ -155,6 +156,14 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        if (pickerMode) {
+            renderPickerPage()
+            return
+        }
+        renderMainPage()
+    }
+
+    private fun renderMainPage() {
         val page = ScrollView(this).apply { isFillViewport = true }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -200,7 +209,7 @@ class MainActivity : Activity() {
         }
         directoryList.adapter = DirectoryAdapter(paths, onToggle = { path -> toggleRoot(path) { directoryList.adapter?.notifyDataSetChanged() } })
         val rowHeight = resources.getDimensionPixelSize(R.dimen.directory_row_height)
-        val listHeight = (rowHeight * paths.size.coerceAtLeast(1)).coerceAtMost(resources.getDimensionPixelSize(R.dimen.directory_list_max_height))
+        val listHeight = (rowHeight * paths.size.coerceAtLeast(1)).coerceAtMost(resources.getDimensionPixelSize(R.dimen.main_directory_list_height))
         box.addView(directoryList, LinearLayout.LayoutParams(-1, listHeight).also { it.topMargin = dp(4) })
 
         val accessRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -217,9 +226,9 @@ class MainActivity : Activity() {
             if (!Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
             else showDirectoryPicker()
         }
-        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, dp(44), 1f))
-        accessRow.addView(addDir, LinearLayout.LayoutParams(dp(120), dp(40)).also { it.marginStart = dp(6) })
-        box.addView(accessRow, LinearLayout.LayoutParams(-1, dp(44)).also { it.topMargin = dp(8) })
+        accessRow.addView(accessStatus, LinearLayout.LayoutParams(0, dp(40), 1f))
+        accessRow.addView(addDir, LinearLayout.LayoutParams(dp(116), dp(36)).also { it.marginStart = dp(4) })
+        box.addView(accessRow, LinearLayout.LayoutParams(-1, dp(40)).also { it.topMargin = dp(4) })
 
         val overlayRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val overlayStatus = TextView(this).apply {
@@ -261,14 +270,14 @@ class MainActivity : Activity() {
             text = "若软件自动关闭，请检查：\n· 悬浮窗权限\n· 常驻锁定\n· 后台运行允许"
             textSize = 12f
             setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
-            setPadding(0, dp(8), 0, dp(8))
-        }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = dp(8) })
+            setPadding(0, dp(4), 0, dp(4))
+        }, LinearLayout.LayoutParams(-1, dp(52)).also { it.topMargin = dp(4) })
 
         val repoLink = TextView(this).apply {
             text = "仓库项目：github.com/owla19s-ux/BridgeFS"
             textSize = 12f
             setTextColor(resources.getColor(R.color.bridgefs_accent))
-            setPadding(0, dp(4), 0, dp(8))
+            setPadding(0, dp(2), 0, dp(4))
             isClickable = true
             setOnClickListener {
                 runCatching {
@@ -300,7 +309,87 @@ class MainActivity : Activity() {
             .onFailure { Toast.makeText(this, "启动悬浮窗失败，请检查系统权限。", Toast.LENGTH_SHORT).show() }
     }
 
-    private fun showDirectoryPicker() { pickerPath = File("/storage/emulated/0"); DirectoryDialog().show() }
+    private fun showDirectoryPicker() {
+        pickerMode = true
+        pickerPath = File(prefs.getString("root_path", "/storage/emulated/0") ?: "/storage/emulated/0")
+        if (!pickerPath.isDirectory || isProtectedWorkspace(pickerPath.absolutePath)) pickerPath = File("/storage/emulated/0")
+        render()
+    }
+
+    private fun renderPickerPage() {
+        val page = ScrollView(this).apply { isFillViewport = true }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding), dimen(R.dimen.main_page_padding))
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(page) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, bars.top, 0, bars.bottom)
+            insets
+        }
+
+        val titleRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(TextView(this).apply {
+            text = "添加目录"
+            textSize = 22f
+            setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+            setTypeface(null, 1)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        titleRow.addView(TextView(this).apply {
+            text = "选择工作区目录"
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+        }, LinearLayout.LayoutParams(-2, dp(44)))
+        box.addView(titleRow)
+
+        val pathView = TextView(this).apply {
+            text = pickerPath.absolutePath
+            textSize = 13f
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+            setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, dp(8), 0)
+            background = rounded(resources.getColor(R.color.bridgefs_input_surface), dp(8))
+        }
+        box.addView(pathView, LinearLayout.LayoutParams(-1, dp(40)).also { it.bottomMargin = dp(6) })
+
+        val dirs = pickerPath.listFiles()?.filter { it.isDirectory && !isProtectedWorkspace(it.absolutePath) }
+            ?.sortedBy { it.name.lowercase(Locale.getDefault()) }.orEmpty()
+        val recycler = RecyclerView(this).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            isNestedScrollingEnabled = false
+            isVerticalScrollBarEnabled = true
+            scrollBarSize = dp(2)
+            adapter = DirectoryAdapter(dirs.map { it.absolutePath }, onToggle = {}, onNavigate = { path ->
+                pickerPath = File(path)
+                render()
+            }, selectionOnly = true)
+        }
+        val rowHeight = resources.getDimensionPixelSize(R.dimen.directory_row_height)
+        val listHeight = (rowHeight * dirs.size.coerceAtLeast(1)).coerceAtMost(resources.getDimensionPixelSize(R.dimen.picker_directory_list_height))
+        box.addView(recycler, LinearLayout.LayoutParams(-1, listHeight).also { it.bottomMargin = dp(8) })
+
+        val actions = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        val back = mainButton("← 返回") {
+            pickerMode = false
+            render()
+        }
+        val select = mainButton("选择此目录") {
+            addRoot(pickerPath.absolutePath) {
+                pickerMode = false
+                render()
+            }
+        }
+        actions.addView(back, LinearLayout.LayoutParams(0, dp(40), 1f))
+        actions.addView(select, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.marginStart = dp(8) })
+        box.addView(actions, LinearLayout.LayoutParams(-1, dp(40)))
+
+        page.addView(box)
+        setContentView(page)
+    }
 
     private inner class DirectoryDialog {
         private val dialog = AlertDialog.Builder(this@MainActivity).create()
@@ -360,7 +449,8 @@ class MainActivity : Activity() {
 private inner class DirectoryAdapter(
         private val paths: List<String>,
         private val onToggle: (String) -> Unit,
-        private val onNavigate: ((String) -> Unit)? = null
+        private val onNavigate: ((String) -> Unit)? = null,
+        private val selectionOnly: Boolean = false
     ) : RecyclerView.Adapter<DirectoryAdapter.Holder>() {
         inner class Holder(
             val row: ConstraintLayout,
@@ -447,13 +537,13 @@ private inner class DirectoryAdapter(
             val added = isRootAdded(path)
             holder.name.text = File(path).name.ifBlank { path }
             holder.name.setTextColor(resources.getColor(if (added) R.color.bridgefs_text_secondary else R.color.bridgefs_text_primary))
-            holder.check.visibility = View.VISIBLE
+            holder.check.visibility = if (selectionOnly) View.GONE else View.VISIBLE
             holder.check.isChecked = added
             holder.icon.visibility = View.VISIBLE
             holder.icon.setColorFilter(resources.getColor(if (added) R.color.bridgefs_text_secondary else R.color.bridgefs_accent))
             holder.arrow.visibility = if (onNavigate != null) View.VISIBLE else View.GONE
             holder.row.background = rowRipple(resources.getColor(if (added) R.color.bridgefs_input_surface else R.color.bridgefs_surface))
-            holder.row.setOnClickListener { onToggle(path) }
+            holder.row.setOnClickListener { if (selectionOnly) onNavigate?.invoke(path) else onToggle(path) }
             holder.arrow.setOnClickListener { onNavigate?.invoke(path) }
         }
     }
