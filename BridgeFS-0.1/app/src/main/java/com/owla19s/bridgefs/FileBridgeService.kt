@@ -508,7 +508,6 @@ bottomBarLp.x=x
 when{
 x<sw/2->{bottomBarEdgeHidden=-1;animateBottomBarToX(-(dp(10)+dp(16)))}
 else->{bottomBarEdgeHidden=1;animateBottomBarToX(sw-dp(10)-dp(16))}
-else->{bottomBarEdgeHidden=0;updateBottomBarWindow()}
 }
 }
 true
