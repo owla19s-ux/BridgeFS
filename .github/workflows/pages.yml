@@ -10,7 +10,7 @@ on:
       - '.github/workflows/pages.yml'
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -72,6 +72,23 @@ jobs:
           echo "APK: $APK"
           ls -lh "$APK"
 
+      - name: Keep stable APK asset
+        run: |
+          set -e
+          mkdir -p release
+          if [ ! -s release/BridgeFS.apk ]; then
+            APK=$(find BridgeFS-0.1/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)
+            cp "$APK" release/BridgeFS.apk
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add release/BridgeFS.apk
+            git commit -m "release: publish BridgeFS v0.1 APK"
+            git push
+            echo "Created stable BridgeFS v0.1 APK asset."
+          else
+            echo "Stable APK already exists; keeping the published v0.1 asset unchanged."
+          fi
+
       - uses: actions/configure-pages@v5
 
       - name: Prepare site
@@ -80,8 +97,7 @@ jobs:
           rm -rf _site
           mkdir -p _site
           cp docs/index.html _site/index.html
-          APK=$(find BridgeFS-0.1/app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)
-          cp "$APK" _site/BridgeFS.apk
+          cp release/BridgeFS.apk _site/BridgeFS.apk
           test -s _site/BridgeFS.apk
           printf '%s\n' 'BridgeFS APK' > _site/README.txt
           echo "Published files:"
