@@ -460,6 +460,9 @@ private fun findReceipt(v:View):TextView?{if(v is TextView&&v.text.toString()=="
 private fun smallButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun mainButton(label:String,onClick:()->Unit)=Button(this).apply{text=label;textSize=13f;setTextColor(resources.getColor(R.color.bridgefs_button_text));minWidth=0;minimumWidth=0;minimumHeight=0;setPadding(0,0,0,0);background=rippleBg(bg("#F2F3F5",10,null),R.color.bridgefs_ripple_orange);setOnClickListener{onClick()}}
 private fun showHelpDialog(){
+if(panel!=null)return
+try{
+log("UI","showHelpDialog")
 val message="""【BridgeFS 完整使用手册】
 
 【使用提示】
@@ -533,15 +536,13 @@ BridgeFS 是一款运行在 Android 设备上的悬浮窗文件管理工具。�
 [mkdir: 相对路径]
   - 新建文件夹。
   - 示例：[mkdir: 资料区/新建文件夹]"""
-val dialog=Dialog(this)
-dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-val content=LinearLayout(this).apply{
+val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
 setPadding(dp(12),dp(12),dp(12),dp(12))
 background=bg("#FFFFFF",16,"#E0E0E0")
 elevation=dp(8).toFloat()
 }
-content.addView(TextView(this).apply{
+box.addView(TextView(this).apply{
 text="BridgeFS 使用手册"
 textSize=15f
 setTypeface(null,1)
@@ -569,15 +570,24 @@ isVerticalScrollBarEnabled=true
 scrollBarSize=dp(2)
 addView(manualText,ViewGroup.LayoutParams(-1,-2))
 }
-content.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(4)})
+box.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(4)})
 val copy=smallButton("复制全部指令"){copyText("BridgeFS 完整使用手册",message);toast("已复制完整使用手册")}.apply{textSize=8f;setSingleLine(true);maxLines=1;contentDescription="复制全部指令"}
 val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
 actions.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)))
-content.addView(actions,LinearLayout.LayoutParams(-1,dp(40)).apply{topMargin=dp(8)})
-dialog.setContentView(content)
-dialog.setOnDismissListener { }
-dialog.show()
-dialog.window?.setLayout(resources.getDimensionPixelSize(R.dimen.panel_width),WindowManager.LayoutParams.WRAP_CONTENT)
+box.addView(actions,LinearLayout.LayoutParams(-1,dp(40)).apply{topMargin=dp(8)})
+box.setPadding(box.paddingLeft,dp(8),box.paddingRight,box.paddingBottom)
+clearPanel()
+panel=box
+val sw=resources.displayMetrics.widthPixels
+val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
+val barCenter=bottomBarLp.x+bottom_bar.width/2
+val targetX=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
+attachPanelToOverlay(box,targetX,dp(24))
+}catch(e:Exception){
+log("Error","showHelpDialog："+e.message)
+runCatching{clearPanel();showBall()}
+toast("打开使用手册失败："+e.message)
+}
 }
 private fun copyText(label:String,text:String){val cm=getSystemService(CLIPBOARD_SERVICE)as ClipboardManager;cm.setPrimaryClip(ClipData.newPlainText(label,text))}
 private fun copyInstructions(){val text="""我这边有个工具叫 BridgeFS，它可以读写我手机里的文件。
