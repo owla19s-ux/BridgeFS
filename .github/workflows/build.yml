@@ -46,3 +46,15 @@ jobs:
           name: BridgeFS-v0.1.2
           path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: Publish latest APK to main release path
+        run: |
+          cp BridgeFS-0.1/app/build/outputs/apk/debug/*.apk release/BridgeFS.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/BridgeFS.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged"
+            exit 0
+          fi
+          git commit -m "release: update latest APK [skip ci]"
+          git push
