@@ -5,6 +5,9 @@
     <dimen name="main_page_padding">16dp</dimen>
     <dimen name="directory_row_height">48dp</dimen>
     <dimen name="directory_list_max_height">300dp</dimen>
+    <dimen name="main_directory_list_height">380dp</dimen>
+    <dimen name="picker_directory_list_height">420dp</dimen>
+    <dimen name="help_scroll_height">230dp</dimen>
     <dimen name="directory_row_padding">16dp</dimen>
     <dimen name="directory_row_corner_radius">8dp</dimen>
     <dimen name="directory_icon_size">24dp</dimen>
