@@ -207,23 +207,25 @@ setOnClickListener{showHelpDialog()}
 },FrameLayout.LayoutParams(dp(32),dp(32),Gravity.TOP or Gravity.RIGHT).also{it.topMargin=dp(4);it.rightMargin=dp(4)})
 }
 val paste=mainButton("粘贴"){val intent=Intent(this,ClipboardReaderActivity::class.java).apply{addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)};startActivity(intent)}
+var runButton:Button?=null
 val run=mainButton("执行"){
 val raw=input.text.toString();log("Command","收到："+raw.replace("\n","\\n").take(500))
 val cs=CommandParser.parse(raw)
 if(cs.isEmpty()){
     findReceipt(box)?.let{it.text="未发现可执行指令";it.setTextColor(Color.DKGRAY)}
 }else{
-    run.isEnabled=false
+    runButton?.isEnabled=false
     commandExecutor.submit{
         val results=cs.map{CommandExecutor(root,this).execute(it)}
         handler.post{
             findReceipt(box)?.let{it.text=results.joinToString("\n\n");it.setTextColor(Color.DKGRAY)}
-            run.isEnabled=true
+            runButton?.isEnabled=true
             log("Command","执行 "+cs.size+" 条指令："+if(results.none{it.contains("✗")})"成功" else "失败")
         }
     }
 }
 }
+runButton=run
 val inputSide=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
 addView(paste,LinearLayout.LayoutParams(dp(56),dp(40)))
@@ -820,7 +822,7 @@ private fun bg(fill:String,r:Int,stroke:String?)=GradientDrawable().apply{setCol
 private fun dimen(id:Int)=resources.getDimensionPixelSize(id)
 private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
 override fun onBind(i:Intent?)=null
-override fun onDestroy(){clipboardCallback=null;commandInput=null;commandExecutor.shutdownNow();log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
+override fun onDestroy(){clipboardCallback=null;commandInput=null;handler.removeCallbacksAndMessages(null);commandExecutor.shutdownNow();log("Service","onDestroy");clearPanel();if(::overlayRoot.isInitialized&&overlayRoot.isAttachedToWindow)runCatching{wm.removeView(overlayRoot)};running=false;super.onDestroy()}
 }
 
 class ClipboardReaderActivity:Activity(){
