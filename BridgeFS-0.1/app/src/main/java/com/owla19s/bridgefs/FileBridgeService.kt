@@ -314,7 +314,11 @@ if(Looper.myLooper()!=Looper.getMainLooper()){handler.post{addPanelFooter(box,to
 try{
 val height=resources.getDimensionPixelSize(R.dimen.bridgefs_bottom_bar_height)
 box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
-ensureRobotState(true)
+if(::bottom_bar.isInitialized){
+bottom_bar.visibility=View.INVISIBLE
+bottomBarBrand.visibility=View.INVISIBLE
+ball.visibility=View.INVISIBLE
+}
 val slot=View(this)
 slot.isClickable=true
 slot.isFocusable=false
@@ -689,15 +693,55 @@ return segments.any{it=="android"}||listOf("/android/data","/android/obb","/andr
 }
 private fun activateWorkspace(path:String,onConfirm:()->Unit){
 if(isProtectedWorkspace(path)){toast("此目录属于系统受保护区域，无法作为工作区");return}
-val activate={onConfirm()}
 if(File(path).name.equals("Download",true)){
-AlertDialog.Builder(this)
-.setTitle("请确认选择下载目录")
-.setMessage("该目录常用于存储系统下载文件。AI 在此处创建或修改文件可能会与常规下载内容混淆。确认将此处设为工作区吗？")
-.setNegativeButton("取消",null)
-.setPositiveButton("确认"){_,_->activate()}
-.show()
-}else activate()
+showDownloadWorkspaceConfirm(path,onConfirm)
+}else onConfirm()
+}
+private fun showDownloadWorkspaceConfirm(path:String,onConfirm:()->Unit){
+try{
+val box=LinearLayout(this).apply{
+orientation=LinearLayout.VERTICAL
+setPadding(dp(12),dp(8),dp(12),0)
+background=bg("#FFFFFF",16,null)
+elevation=dp(8).toFloat()
+}
+val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+val back=smallButton("←"){showRootList()}
+val title=TextView(this).apply{
+text="确认工作区"
+textSize=15f
+setTypeface(null,1)
+setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+gravity=Gravity.CENTER_VERTICAL
+}
+top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)))
+top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(4)})
+box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
+val message=TextView(this).apply{
+text="下载目录可能同时包含系统下载文件。\\n\\n确认将：\\nBridgeFS-0.1/app/src/main/java/com/owla19s/bridgefs/FileBridgeService.kt\\n\\n设为 BridgeFS 当前工作区？"
+textSize=13f
+setTextColor(resources.getColor(R.color.bridgefs_text_primary))
+setPadding(dp(8),dp(12),dp(8),dp(8))
+}
+box.addView(message,LinearLayout.LayoutParams(-1,0,1f))
+val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
+val cancel=smallButton("取消"){showRootList()}
+val confirm=mainButton("确认"){onConfirm()}
+actions.addView(cancel,LinearLayout.LayoutParams(dp(64),dp(40)))
+actions.addView(confirm,LinearLayout.LayoutParams(dp(64),dp(40)).also{it.marginStart=dp(8)})
+box.addView(actions,LinearLayout.LayoutParams(-1,dp(48)))
+addPanelFooter(box)
+clearPanel()
+panel=box
+val sw=resources.displayMetrics.widthPixels
+val panelWidth=resources.getDimensionPixelSize(R.dimen.panel_width)
+val barCenter=bottomBarLp.x+bottom_bar.width/2
+val targetX=if(barCenter<sw/2)dp(8) else (sw-panelWidth-dp(8)).coerceAtLeast(0)
+attachPanelToOverlay(box,targetX,dp(24))
+}catch(e:Exception){
+log("Error","showDownloadWorkspaceConfirm："+e.message)
+runCatching{showRootList()}
+}
 }
 private fun showRootList(){
 try{
