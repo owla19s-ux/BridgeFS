@@ -145,6 +145,11 @@ class MainActivity : Activity() {
             if (showPermissionHint) Toast.makeText(this, "请先在系统设置开启悬浮窗权限；ColorOS 后台自启动也需允许。", Toast.LENGTH_LONG).show()
             return
         }
+        val workspace = prefs.getString("root_path", null)
+        if (workspace.isNullOrBlank() || !File(workspace).isDirectory || isProtectedWorkspace(workspace)) {
+            if (showPermissionHint) Toast.makeText(this, "请先添加并激活项目目录，再自动显示悬浮窗。", Toast.LENGTH_LONG).show()
+            return
+        }
         runCatching { ContextCompatCompat.startService(this, Intent(this, FileBridgeService::class.java)) }
             .onFailure { Toast.makeText(this, "自动显示悬浮窗失败，请检查系统的悬浮窗/自启动限制。", Toast.LENGTH_LONG).show() }
     }
@@ -258,6 +263,22 @@ class MainActivity : Activity() {
             setTextColor(resources.getColor(R.color.bridgefs_text_secondary))
             setPadding(0, dp(8), 0, dp(8))
         }, LinearLayout.LayoutParams(-1, dp(64)).also { it.topMargin = dp(8) })
+
+        val repoLink = TextView(this).apply {
+            text = "仓库项目：github.com/owla19s-ux/BridgeFS"
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.bridgefs_accent))
+            setPadding(0, dp(4), 0, dp(8))
+            isClickable = true
+            setOnClickListener {
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/owla19s-ux/BridgeFS")))
+                }.onFailure {
+                    Toast.makeText(this@MainActivity, "无法打开仓库地址", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        box.addView(repoLink, LinearLayout.LayoutParams(-1, -2))
         page.addView(box)
         setContentView(page)
     }
