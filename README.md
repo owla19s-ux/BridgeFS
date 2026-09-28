@@ -174,22 +174,9 @@ BridgeFS-v0.1.2.apk
 
 ## 下载
 
-项目的 GitHub Pages 下载页提供两个入口：
+**最新 APK：** [下载 BridgeFS.apk](https://github.com/owla19s-ux/BridgeFS/raw/refs/heads/main/release/BridgeFS.apk)
 
-- **正式版 APK**：固定稳定资产，不会因为日常开发自动替换。
-- **最新测试版 APK**：来自 `main` 的最新云端构建，用于开发验证。
-
-仓库中的正式版实体文件位于：
-
-```text
-release/BridgeFS.apk
-```
-
-下载页源码位于：
-
-```text
-docs/index.html
-```
+项目的 GitHub Pages 下载页也提供下载入口。
 
 ## 项目结构
 
