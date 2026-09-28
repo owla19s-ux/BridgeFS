@@ -13,8 +13,8 @@ sealed class Command {
 object CommandParser {
  var lastError: String? = null
  private val simple=Regex("(?m)^\\s*\\[(list)\\]\\s*$|^\\s*\\[(read|search|grep|path|copy-path|mkdir):\\s*(.*?)\\]\\s*$")
- private val write=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[write:\\s*(.+?)\\]\\s*(.*?)\\[/write\\]\\s*(?:\\x60\\x60\\x60)?")
- private val edit=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[edit:\\s*(.+?)\\]\\s*(.*?)\\[/edit\\]\\s*(?:\\x60\\x60\\x60)?")
+ private val write=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[write:\\s*(.+?)\\]\\s*\\n(.*?)\\[/write\\]\\s*(?:\\x60\\x60\\x60)?")
+ private val edit=Regex("(?s)(?:\\x60\\x60\\x60\\s*)?\\[edit:\\s*(.+?)\\]\\s*\\n(.*?)\\[/edit\\]\\s*(?:\\x60\\x60\\x60)?")
  fun parse(input:String):List<Command>{
   lastError = null
   val h=mutableListOf<Pair<Int,Command>>()
