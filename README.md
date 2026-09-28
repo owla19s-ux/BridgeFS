@@ -1,5 +1,8 @@
 # BridgeFS
 
+**最新 APK：** [下载 BridgeFS.apk](https://github.com/owla19s-ux/BridgeFS/raw/refs/heads/main/release/BridgeFS.apk)
+
+
 **BridgeFS** 是一个 Android 本地文件执行桥：把 AI 对话中的结构化文件指令交给手机上的 BridgeFS 执行，并返回真实执行结果。
 
 本仓库当前版本已经完成这一轮功能测试，**短期冻结，不再继续扩展 BridgeFS 本体功能**。后续如需新能力，应以新的施工轮次或新版本计划处理。
@@ -173,8 +176,6 @@ BridgeFS-v0.1.2.apk
 ```
 
 ## 下载
-
-**最新 APK：** [下载 BridgeFS.apk](https://github.com/owla19s-ux/BridgeFS/raw/refs/heads/main/release/BridgeFS.apk)
 
 项目的 GitHub Pages 下载页也提供下载入口。
 
