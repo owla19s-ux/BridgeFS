@@ -562,17 +562,29 @@ val message="""【BridgeFS 使用手册】
 """
 val box=LinearLayout(this).apply{
 orientation=LinearLayout.VERTICAL
-setPadding(dp(12),dp(10),dp(12),0)
-background=bg("#FFFFFF",16,"#E0E0E0")
+setPadding(dp(12),dp(8),dp(12),dp(12))
+background=bg("#FFFFFF",16,null)
 elevation=dp(8).toFloat()
 }
-box.addView(TextView(this).apply{
+val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+val back=smallButton("←"){closePanel()}
+val title=TextView(this).apply{
 text="BridgeFS 使用手册"
 textSize=15f
 setTypeface(null,1)
 setTextColor(resources.getColor(R.color.bridgefs_text_primary))
 gravity=Gravity.CENTER_VERTICAL
-},LinearLayout.LayoutParams(-1,dp(38)))
+}
+val copy=smallButton("复制"){copyText("BridgeFS 使用手册",message);toast("已复制使用手册")}.apply{
+textSize=11f
+setSingleLine(true)
+maxLines=1
+contentDescription="复制全部使用手册"
+}
+top.addView(back,LinearLayout.LayoutParams(dp(48),dp(40)))
+top.addView(title,LinearLayout.LayoutParams(0,dp(40),1f).also{it.marginStart=dp(4)})
+top.addView(copy,LinearLayout.LayoutParams(dp(56),dp(40)).also{it.marginStart=dp(6)})
+box.addView(top,LinearLayout.LayoutParams(-1,dp(48)))
 val manualText=TextView(this).apply{
 text=message
 textSize=12f
@@ -583,7 +595,7 @@ setPadding(dp(8),dp(6),dp(8),dp(6))
 }
 val scroll=object:ScrollView(this){
 override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
-super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dp(285),View.MeasureSpec.AT_MOST))
+super.onMeasure(widthMeasureSpec,View.MeasureSpec.makeMeasureSpec(dimen(R.dimen.directory_list_max_height),View.MeasureSpec.EXACTLY))
 }
 }.apply{
 isFillViewport=false
@@ -591,15 +603,9 @@ isVerticalScrollBarEnabled=true
 scrollBarSize=dp(2)
 addView(manualText,ViewGroup.LayoutParams(-1,-2))
 }
-box.addView(scroll,LinearLayout.LayoutParams(-1,-2).apply{topMargin=dp(2)})
-val copy=smallButton("复制全部"){copyText("BridgeFS 使用手册",message);toast("已复制使用手册")}.apply{
-textSize=10f;setSingleLine(true);maxLines=1;contentDescription="复制全部使用手册"
-}
-val actions=LinearLayout(this).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL}
-actions.addView(copy,LinearLayout.LayoutParams(dp(64),dp(38)))
-box.addView(actions,LinearLayout.LayoutParams(-1,dp(38)).apply{topMargin=dp(4)})
-addPanelFooter(box,dp(4))
-box.setPadding(box.paddingLeft,dp(10),box.paddingRight,0)
+box.addView(scroll,LinearLayout.LayoutParams(-1,dimen(R.dimen.directory_list_max_height)).apply{topMargin=dp(2)})
+addPanelFooter(box)
+box.setPadding(box.paddingLeft,box.paddingTop,box.paddingRight,0)
 clearPanel()
 panel=box
 val sw=resources.displayMetrics.widthPixels
