@@ -20,57 +20,80 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+
       - name: Verify source revision
         run: |
           echo "GITHUB_SHA=$GITHUB_SHA"
           echo "HEAD=$(git rev-parse HEAD)"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
           accept-android-sdk-licenses: true
+
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Restore debug keystore
+
+      - name: Restore release keystore
         env:
-          KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          mkdir -p ~/.android
+          test -n "$KEYSTORE_B64"
+          mkdir -p .signing
           python3 - <<'PY'
           import os, base64, re
-          s = os.environ['KEYSTORE_B64']
-          m = re.search(r'===\s*B64_START\s*===(.*?)===\s*B64_END\s*===', s, re.S)
-          if m:
-              s = m.group(1)
-          s = re.sub(r'[^A-Za-z0-9+/=]', '', s)
-          data = base64.b64decode(s)
-          with open(os.path.expanduser('~/.android/debug.keystore'), 'wb') as f:
+          s = os.environ["KEYSTORE_B64"]
+          s = re.sub(r"^\s+|\s+$", "", s)
+          s = re.sub(r"\s+", "", s)
+          data = base64.b64decode(s, validate=True)
+          with open(".signing/bridgefs-release.keystore", "wb") as f:
               f.write(data)
-          print('keystore bytes:', len(data))
+          print("keystore bytes:", len(data))
           PY
-          sha256sum ~/.android/debug.keystore
-      - run: gradle :app:assembleDebug
+          sha256sum .signing/bridgefs-release.keystore
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          gradle :app:assembleRelease \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/.signing/bridgefs-release.keystore" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEYSTORE_PASSWORD"
         working-directory: BridgeFS-0.1
+
       - uses: actions/upload-artifact@v4
         with:
-          name: BridgeFS-v0.1.2-${{ github.sha }}
-          path: BridgeFS-0.1/app/build/outputs/apk/debug/*.apk
+          name: BridgeFS-release-${{ github.sha }}
+          path: BridgeFS-0.1/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
       - name: Prepare stable APK filename
         run: |
-          APK="$(find BridgeFS-0.1/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          APK="$(find BridgeFS-0.1/app/build/outputs/apk/release -name '*.apk' | head -n 1)"
           test -n "$APK"
           cp "$APK" BridgeFS.apk
           echo "Release APK: BridgeFS.apk"
+
       - name: Publish latest APK to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest BridgeFS.apk             --title "BridgeFS Latest"             --notes "Latest successful GitHub Actions build."             --target "$GITHUB_SHA"
+          gh release create latest BridgeFS.apk \
+            --title "BridgeFS Latest" \
+            --notes "Latest successful GitHub Actions build." \
+            --target "$GITHUB_SHA"
